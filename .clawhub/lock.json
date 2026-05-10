@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "skills": {
+    "skill-vetter": {
+      "version": "1.0.0",
+      "installedAt": 1777824313665
+    },
+    "pyautogui": {
+      "version": "1.2.0",
+      "installedAt": 1777825298076
+    },
+    "pua": {
+      "version": "2.9.0",
+      "installedAt": 1777872293665
+    },
+    "my-find-skills": {
+      "version": "1.0.0",
+      "installedAt": 1778420839283
+    }
+  }
+}

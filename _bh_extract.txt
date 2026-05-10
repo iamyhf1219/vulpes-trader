@@ -1,0 +1,11 @@
+js("window.scrollTo(0, 300)")
+wait_for_load(3000)
+tweets = (function() {
+  var els = document.querySelectorAll('[data-testid=tweetText]');
+  var result = [];
+  for (var i = 0; i < els.length && i < 10; i++) {
+    result.push('TWEET ' + (i+1) + ': ' + els[i].innerText.substring(0, 500));
+  }
+  return result.join('\n---\n');
+})()
+print(tweets)

@@ -28,7 +28,7 @@ class Config:
                     self._yaml_config.update(data)
 
     @property
-    def exchange_config(self) -> Dict[str, str]:
+    def exchange_config(self) -> Dict[str, Any]:
         if self.mode == "testnet":
             return {
                 "apiKey": os.getenv("BINANCE_TESTNET_API_KEY", ""),

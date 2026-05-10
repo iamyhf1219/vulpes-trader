@@ -1,0 +1,10 @@
+square_heat:
+  enabled: true
+  poll_interval: 30
+  max_tickers: 30
+  heat_window: 3600
+  signal_rules:
+    heat_oi_bullish:
+      confidence: 0.8
+    heat_only_bullish:
+      confidence: 0.6

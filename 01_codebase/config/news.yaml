@@ -1,0 +1,14 @@
+news_engine:
+  enabled: false
+  poll_interval: 60
+  sources:
+    - name: "crypto_news_api"
+      url: ""
+      api_key_env: "CRYPTO_NEWS_API_KEY"
+    - name: "twitter_kol"
+      enabled: false
+  event_decay:
+    regulation_positive: "4h"
+    regulation_negative: "4h"
+    hack_exploit: "6h"
+    listing: "1h"

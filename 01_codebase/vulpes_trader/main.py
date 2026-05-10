@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from vulpes_trader.config import config
+from vulpes_trader.orchestrator import VulpesOrchestrator
 
 logger = logging.getLogger("vulpes")
 
@@ -11,12 +12,16 @@ async def main():
     logger.info("=== Vulpes Trader 启动 ===")
     logger.info("模式: %s", config.mode)
     
+    orchestrator = VulpesOrchestrator()
+    await orchestrator.start()
+    
     try:
-        # TODO: Phase 2+ - 启动各层组件
-        logger.info("基建就绪，等待后续模块加载...")
-        await asyncio.Event().wait()  # 永久运行
+        # 保持运行
+        await asyncio.Event().wait()
     except asyncio.CancelledError:
         logger.info("收到停止信号，正在安全关闭...")
+    finally:
+        await orchestrator.stop()
 
 
 def run():

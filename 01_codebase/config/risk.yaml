@@ -1,0 +1,13 @@
+risk:
+  max_leverage: 20
+  min_leverage: 1
+  max_capital_per_trade_base: 0.15
+  max_total_positions: 5
+  stop_loss_fixed_pct: 0.05
+  trailing_stop_activation: 0.02
+  trailing_stop_distance: 0.015
+  daily_loss_limit: 0.20
+  max_consecutive_losses: 3
+  circuit_breaker: true
+  dynamic_position_sizing: true
+  dynamic_leverage: true

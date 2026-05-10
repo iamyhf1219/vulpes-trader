@@ -1,0 +1,9 @@
+strategy:
+  name: "trend_following_v1"
+  timeframes:
+    primary: "5m"
+    secondary: "15m"
+  indicators:
+    ema_fast: [9, 12]
+    ema_slow: [26, 50]
+    macd: [12, 26, 9]

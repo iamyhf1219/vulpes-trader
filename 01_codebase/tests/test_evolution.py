@@ -16,7 +16,7 @@ def test_review_win_trade():
     })
     assert result.grade in (ReviewGrade.A, ReviewGrade.B)
     assert result.pnl == 500
-    assert "有效" in result.lessons[0]
+    assert "effective" in result.lessons[0]
 
 
 def test_review_loss_trade():

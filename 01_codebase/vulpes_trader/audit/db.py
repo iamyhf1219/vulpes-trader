@@ -47,7 +47,6 @@ class AuditDB:
                     quantity REAL NOT NULL,
                     leverage INTEGER NOT NULL,
                     pnl REAL,
-                    pnl_pct REAL,
                     entry_time TIMESTAMP NOT NULL,
                     exit_time TIMESTAMP,
                     stop_loss REAL,
@@ -97,15 +96,16 @@ class AuditDB:
             """)
         self.initialized = True
 
-    def execute(self, sql: str, params: tuple = ()) -> List[Any]:
-        """执行 SQL"""
+    def query(self, sql: str, params: tuple = ()) -> List[Any]:
+        """执行 SQL 查询，返回所有结果行"""
         with self._conn() as conn:
             return conn.execute(sql, params).fetchall()
 
-    def fetchall(self, sql: str, params: tuple = ()) -> List[Any]:
-        """查询并返回所有结果"""
+    def execute(self, sql: str, params: tuple = ()) -> int:
+        """执行 INSERT/UPDATE/DELETE，返回影响行数"""
         with self._conn() as conn:
-            return conn.execute(sql, params).fetchall()
+            cur = conn.execute(sql, params)
+            return cur.rowcount
 
     def save_trade(self, trade_data: dict) -> int:
         """保存交易记录，返回 ID"""
@@ -131,12 +131,13 @@ class AuditDB:
             return cur.lastrowid
 
     def close_trade(self, trade_id: int, exit_price: float, pnl: float,
-                    exit_reason: str):
-        """平仓更新"""
+                    exit_reason: str) -> bool:
+        """平仓更新，返回是否找到并更新了该交易"""
         with self._conn() as conn:
-            conn.execute(
+            cur = conn.execute(
                 """UPDATE trades SET exit_price=?, pnl=?, exit_time=?,
                    exit_reason=? WHERE id=?""",
                 (exit_price, pnl, datetime.now(timezone.utc).isoformat(),
                  exit_reason, trade_id),
             )
+            return cur.rowcount > 0

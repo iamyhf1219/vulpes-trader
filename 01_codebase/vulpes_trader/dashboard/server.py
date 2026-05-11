@@ -239,7 +239,8 @@ class DashboardServer:
             """返回前端页面"""
             index_path = _STATIC_DIR / "index.html"
             if index_path.exists():
-                return HTMLResponse(index_path.read_text(encoding="utf-8"))
+                content = index_path.read_text(encoding="utf-8")
+                return HTMLResponse(content, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
             return HTMLResponse("<h1>Vulpes Trader Dashboard</h1><p>Static file not found</p>")
 
         @app.get("/api/status")

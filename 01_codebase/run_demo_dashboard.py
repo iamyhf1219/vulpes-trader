@@ -12,7 +12,7 @@ from copy import deepcopy
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-PORT = 8771
+PORT = 8772
 BASE_ASSETS = 100000.0  # 初始本金
 
 

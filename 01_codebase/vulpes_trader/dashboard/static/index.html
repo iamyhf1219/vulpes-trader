@@ -89,48 +89,95 @@ body {
   padding: 8px;
 }
 
-/* ===== PnL Panel (span 3 cols) ===== */
+/* ===== PnL Panel (span 3 cols, Binance style) ===== */
 .pnl-panel {
   grid-column: 1 / -1;
   background: #0d1117;
-  height: 140px;
+  min-height: 240px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
-.pnl-body {
-  flex: 1;
+.pnl-header-stats {
   display: flex;
-  padding: 8px 12px;
-  gap: 16px;
+  align-items: baseline;
+  gap: 24px;
+  padding: 12px 16px 4px;
+  flex-shrink: 0;
 }
-.pnl-metrics {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 200px;
-}
-.pnl-metric {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 8px;
-  background: #161b22;
-  border-radius: 4px;
+.pnl-total-label {
   font-size: 12px;
+  color: #8b949e;
+  margin-bottom: 2px;
 }
-.pnl-metric .label { color: #8b949e; }
-.pnl-metric .value { font-weight: 700; font-size: 14px; }
-.pnl-metric .value.pos { color: #3fb950; }
-.pnl-metric .value.neg { color: #f85149; }
-.pnl-chart-wrap {
+.pnl-total-amount {
+  font-size: 28px;
+  font-weight: 700;
+  color: #e6edf3;
+  letter-spacing: -0.5px;
+}
+.pnl-total-amount .currency {
+  font-size: 16px;
+  font-weight: 400;
+  color: #8b949e;
+  margin-left: 4px;
+}
+.pnl-daily-section {
+  margin-left: 8px;
+}
+.pnl-daily-label {
+  font-size: 12px;
+  color: #8b949e;
+}
+.pnl-daily-value {
+  font-size: 20px;
+  font-weight: 700;
+}
+.pnl-daily-value.pos { color: #3fb950; }
+.pnl-daily-value.neg { color: #f85149; }
+.pnl-daily-pct {
+  font-size: 14px;
+  font-weight: 500;
+  margin-left: 6px;
+}
+.pnl-daily-pct.pos { color: #3fb950; }
+.pnl-daily-pct.neg { color: #f85149; }
+/* Time selector */
+.pnl-time-bar {
+  display: flex;
+  gap: 4px;
+  padding: 4px 16px 0;
+  flex-shrink: 0;
+}
+.pnl-time-btn {
+  padding: 3px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  background: transparent;
+  color: #8b949e;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pnl-time-btn:hover {
+  background: #21262d;
+  color: #c9d1d9;
+}
+.pnl-time-btn.active {
+  background: #1f6feb;
+  color: #fff;
+  border-color: #1f6feb;
+}
+/* Chart area */
+.pnl-chart-body {
   flex: 1;
+  padding: 2px 12px 6px;
   position: relative;
 }
-.pnl-chart-wrap canvas {
+.pnl-chart-body canvas {
   width: 100% !important;
   height: 100% !important;
-  border-radius: 4px;
 }
 
 /* ===== Positions ===== */
@@ -285,19 +332,31 @@ body {
   </div>
   </div>
 
-  <!-- PnL Curve -->
+  <!-- PnL Curve (Binance-style) -->
   <div class="pnl-panel">
-    <div class="panel-header">📈 收益曲线</div>
-    <div class="pnl-body">
-      <div class="pnl-metrics">
-        <div class="pnl-metric"><span class="label">实时 PnL</span><span class="value pos" id="pnlRealtime">+552.40</span></div>
-        <div class="pnl-metric"><span class="label">今日收益</span><span class="value pos" id="pnlDaily">+128.50</span></div>
-        <div class="pnl-metric"><span class="label">本月收益</span><span class="value pos" id="pnlMonthly">+2,145.80</span></div>
-        <div class="pnl-metric"><span class="label">累计收益</span><span class="value pos" id="pnlYearly">+8,632.40</span></div>
+    <div class="panel-header" style="border-bottom:none;padding-bottom:0;">📈 收益</div>
+    <div class="pnl-header-stats">
+      <div>
+        <div class="pnl-total-label">总资产 (USDT)</div>
+        <div class="pnl-total-amount" id="pnlTotalAssets">108,632.40<span class="currency">USDT</span></div>
       </div>
-      <div class="pnl-chart-wrap">
-        <canvas id="pnlChart"></canvas>
+      <div class="pnl-daily-section">
+        <div class="pnl-daily-label">今日盈亏</div>
+        <div>
+          <span class="pnl-daily-value pos" id="pnlDailyValue">+128.50</span>
+          <span class="pnl-daily-pct pos" id="pnlDailyPct">(+1.25%)</span>
+        </div>
       </div>
+    </div>
+    <div class="pnl-time-bar" id="pnlTimeBar">
+      <button class="pnl-time-btn" data-range="1d">1天</button>
+      <button class="pnl-time-btn" data-range="7d">7天</button>
+      <button class="pnl-time-btn active" data-range="30d">30天</button>
+      <button class="pnl-time-btn" data-range="180d">180天</button>
+      <button class="pnl-time-btn" data-range="360d">360天</button>
+    </div>
+    <div class="pnl-chart-body">
+      <canvas id="pnlChart"></canvas>
     </div>
   </div>
 
@@ -403,7 +462,7 @@ async function fetchAll() {
       fetch('/api/performance').then(r => r.json()),
       fetch('/api/signals').then(r => r.json()),
       fetch('/api/config').then(r => r.json()),
-      fetch('/api/pnl_history').then(r => r.json()),
+      fetch('/api/pnl_history?range=' + _pnlCurrentRange).then(r => r.json()),
     ]);
     updateStatus(status);
     updatePositions(positions);
@@ -587,52 +646,53 @@ function toggleLog() {
   }
 }
 
-// ---- PnL Chart ----
+// ---- PnL Chart (Binance-style with axes) ----
 
 let _pnlHistoryCache = [];
+let _pnlCurrentRange = '30d';
 
 function updatePnlChart(data) {
   if (!data || !data.points || !data.points.length) return;
   _pnlHistoryCache = data.points;
-
-  // Update metrics
-  if (data.metrics) {
-    updatePnlMetrics(data.metrics);
-  }
-
+  if (data.metrics) updatePnlMetrics(data.metrics);
   drawPnlCurve(_pnlHistoryCache);
 }
 
 function updatePnlMetrics(metrics) {
-  const updateMetric = (id, val, suffix) => {
-    const el = $(id);
-    if (!el) return;
-    const v = parseFloat(val) || 0;
-    el.textContent = (v >= 0 ? '+' : '') + v.toFixed(2) + (suffix || '');
-    el.className = 'value ' + (v >= 0 ? 'pos' : 'neg');
-  };
-  updateMetric('pnlRealtime', metrics.realtime || metrics.current || 0);
-  updateMetric('pnlDaily', metrics.daily || 0);
-  updateMetric('pnlMonthly', metrics.monthly || 0);
-  updateMetric('pnlYearly', metrics.yearly || metrics.total || 0);
+  if (!metrics) return;
+
+  // Total assets
+  const ta = parseFloat(metrics.total_assets) || 0;
+  $('pnlTotalAssets').innerHTML = ta.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) + '<span class="currency">USDT</span>';
+
+  // Daily PnL
+  const dp = parseFloat(metrics.daily) || 0;
+  const dpEl = $('pnlDailyValue');
+  dpEl.textContent = (dp >= 0 ? '+' : '') + dp.toFixed(2);
+  dpEl.className = 'pnl-daily-value ' + (dp >= 0 ? 'pos' : 'neg');
+
+  const dpp = parseFloat(metrics.daily_pct) || 0;
+  const dppEl = $('pnlDailyPct');
+  dppEl.textContent = (dpp >= 0 ? '(+' : '(') + dpp.toFixed(2) + '%)';
+  dppEl.className = 'pnl-daily-pct ' + (dpp >= 0 ? 'pos' : 'neg');
 }
 
 function drawPnlCurve(points) {
   const canvas = document.getElementById('pnlChart');
   if (!canvas) return;
 
-  const rect = canvas.parentElement.getBoundingClientRect();
+  const parent = canvas.parentElement;
+  const rect = parent.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = (rect.width || 400) * dpr;
-  canvas.height = (rect.height || 100) * dpr;
-  canvas.style.width = (rect.width || 400) + 'px';
-  canvas.style.height = (rect.height || 100) + 'px';
+  const w = Math.max(rect.width || 400, 100);
+  const h = Math.max(rect.height || 140, 60);
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
 
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
-  const w = canvas.width / dpr;
-  const h = canvas.height / dpr;
-
   ctx.clearRect(0, 0, w, h);
 
   if (points.length < 2) return;
@@ -640,78 +700,166 @@ function drawPnlCurve(points) {
   const values = points.map(p => (typeof p === 'number' ? p : (p.value || p.pnl || 0)));
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const range = max - min || 1;
-  const pad = 10;
-  const chartW = w - pad * 2;
-  const chartH = h - pad * 2;
+  const vRange = max - min || 1;
 
-  // Grid lines
+  // Padding: left for Y-axis, right, top, bottom for X-axis
+  const padL = 60, padR = 12, padT = 8, padB = 22;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+
+  // ---- Y-axis grid lines & labels ----
   ctx.strokeStyle = '#21262d';
   ctx.lineWidth = 1;
-  const gridCount = 4;
-  for (let i = 0; i <= gridCount; i++) {
-    const y = pad + (chartH / gridCount) * i;
+  ctx.fillStyle = '#484f58';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+
+  const yGridCount = 5;
+  for (let i = 0; i <= yGridCount; i++) {
+    const y = padT + (chartH / yGridCount) * i;
+    const val = max - (vRange / yGridCount) * i;
+
+    // Grid line
     ctx.beginPath();
-    ctx.moveTo(pad, y);
-    ctx.lineTo(w - pad, y);
+    ctx.moveTo(padL, y);
+    ctx.lineTo(w - padR, y);
     ctx.stroke();
+
+    // Label
+    ctx.fillText(formatAmount(val), padL - 6, y);
   }
 
-  // Zero line
+  // ---- X-axis labels ----
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  const xLabelCount = 5;
+  for (let i = 0; i <= xLabelCount; i++) {
+    const x = padL + (chartW / xLabelCount) * i;
+    const idx = Math.floor((points.length - 1) / xLabelCount * i);
+    const p = points[idx];
+    const label = p.time || p.t || formatTimeLabel(idx, _pnlCurrentRange, points.length);
+    ctx.fillText(label, x, h - padB + 4);
+  }
+
+  // ---- Zero line ----
   if (min < 0 && max > 0) {
-    const zeroY = pad + chartH * (max / range);
+    const zeroY = padT + chartH * (max / vRange);
     ctx.strokeStyle = '#30363d';
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
     ctx.beginPath();
-    ctx.moveTo(pad, zeroY);
-    ctx.lineTo(w - pad, zeroY);
+    ctx.moveTo(padL, zeroY);
+    ctx.lineTo(w - padR, zeroY);
     ctx.stroke();
     ctx.setLineDash([]);
   }
 
-  // Fill gradient
-  const gradient = ctx.createLinearGradient(0, pad, 0, h - pad);
-  gradient.addColorStop(0, 'rgba(88, 166, 255, 0.25)');
-  gradient.addColorStop(1, 'rgba(88, 166, 255, 0.02)');
+  // ---- Gradient fill ----
+  const gradTop = h * 0.3;
+  const gradient = ctx.createLinearGradient(0, padT, 0, h - padB);
+  gradient.addColorStop(0, 'rgba(88, 166, 255, 0.20)');
+  gradient.addColorStop(0.5, 'rgba(88, 166, 255, 0.06)');
+  gradient.addColorStop(1, 'rgba(88, 166, 255, 0.01)');
 
-  // Draw fill area
+  const stepX = chartW / Math.max(points.length - 1, 1);
   ctx.beginPath();
-  const step = chartW / Math.max(points.length - 1, 1);
   values.forEach((v, i) => {
-    const x = pad + i * step;
-    const y = pad + chartH * (1 - (v - min) / range);
+    const x = padL + i * stepX;
+    const y = padT + chartH * (1 - (v - min) / vRange);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
-  ctx.lineTo(pad + (values.length - 1) * step, h - pad);
-  ctx.lineTo(pad, h - pad);
+  ctx.lineTo(padL + (values.length - 1) * stepX, h - padB);
+  ctx.lineTo(padL, h - padB);
   ctx.closePath();
   ctx.fillStyle = gradient;
   ctx.fill();
 
-  // Draw line
+  // ---- Line ----
+  const isUp = values[values.length - 1] >= values[0];
   ctx.beginPath();
-  ctx.strokeStyle = '#58a6ff';
+  ctx.strokeStyle = isUp ? '#3fb950' : '#f85149';
   ctx.lineWidth = 2;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   values.forEach((v, i) => {
-    const x = pad + i * step;
-    const y = pad + chartH * (1 - (v - min) / range);
+    const x = padL + i * stepX;
+    const y = padT + chartH * (1 - (v - min) / vRange);
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   });
   ctx.stroke();
 
-  // Current value label
+  // ---- Last value dot + label ----
   const lastV = values[values.length - 1];
-  const lastX = pad + (values.length - 1) * step;
-  const lastY = pad + chartH * (1 - (lastV - min) / range);
-  ctx.fillStyle = lastV >= 0 ? '#3fb950' : '#f85149';
-  ctx.font = '10px sans-serif';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'bottom';
-  ctx.fillText((lastV >= 0 ? '+' : '') + lastV.toFixed(1), lastX + 4, lastY - 2);
+  const lx = padL + (values.length - 1) * stepX;
+  const ly = padT + chartH * (1 - (lastV - min) / vRange);
+
+  // Dot
+  ctx.beginPath();
+  ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+  ctx.fillStyle = isUp ? '#3fb950' : '#f85149';
+  ctx.fill();
+  ctx.strokeStyle = '#0d1117';
+  ctx.lineWidth = 2;
+  ctx.stroke();
 }
+
+function formatAmount(val) {
+  if (Math.abs(val) >= 10000) {
+    return (val / 10000).toFixed(1) + '万';
+  }
+  if (Math.abs(val) >= 1000) {
+    return (val / 1000).toFixed(1) + 'k';
+  }
+  return val.toFixed(0);
+}
+
+function formatTimeLabel(idx, range, total) {
+  // Generate approximate time labels based on range
+  if (range === '1d') {
+    const hour = Math.floor(idx / 4); // 96 points = 15min intervals = 24h
+    return String(hour).padStart(2,'0') + ':00';
+  }
+  if (range === '7d') {
+    const day = Math.floor(idx / 24); // 168 points = 1h intervals
+    return 'D' + (day + 1);
+  }
+  if (range === '30d') {
+    const day = Math.floor(idx / 12); // 360 points = 2h intervals
+    return 'D' + (day + 1);
+  }
+  if (range === '180d') {
+    const month = Math.floor(idx / 30);
+    return 'M' + (month + 1);
+  }
+  // 360d
+  const month = Math.floor(idx / 30);
+  return 'M' + (month + 1);
+}
+
+// ---- Time selector ----
+document.addEventListener('DOMContentLoaded', () => {
+  const bar = document.getElementById('pnlTimeBar');
+  if (!bar) return;
+  bar.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.pnl-time-btn');
+    if (!btn) return;
+
+    // Update active state
+    bar.querySelectorAll('.pnl-time-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    _pnlCurrentRange = btn.dataset.range;
+
+    // Fetch new data
+    try {
+      const data = await fetch('/api/pnl_history?range=' + _pnlCurrentRange).then(r => r.json());
+      updatePnlChart(data);
+    } catch (e) {
+      console.warn('Fetch pnl_history failed:', e);
+    }
+  });
+});
 
 // Redraw on resize
 let _resizeTimer;

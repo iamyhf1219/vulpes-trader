@@ -211,9 +211,16 @@ class DashboardServer:
             return self._config_cb()
         return self._state.config
 
-    def _collect_pnl_history(self) -> Dict[str, Any]:
+    def _collect_pnl_history(self, range_key: str = "30d") -> Dict[str, Any]:
+        raw = self._state.pnl_history
+        if isinstance(raw, dict):
+            points = raw.get(range_key, raw.get("30d", []))
+        elif isinstance(raw, list):
+            points = raw
+        else:
+            points = []
         return {
-            "points": self._state.pnl_history,
+            "points": points,
             "metrics": self._state.pnl_metrics,
         }
 
@@ -256,8 +263,8 @@ class DashboardServer:
             return self._collect_config()
 
         @app.get("/api/pnl_history")
-        async def api_pnl_history():
-            return self._collect_pnl_history()
+        async def api_pnl_history(range: str = "30d"):
+            return self._collect_pnl_history(range)
 
         # ---- WebSocket ----
 
@@ -345,14 +352,25 @@ def _generate_demo_data() -> DashboardState:
         {"timestamp": now, "level": "INFO", "message": "止损设置: BTC @ 60888 (-2.5%)", "source": "risk"},
     ]
 
-    # PnL 历史曲线 (模拟30天数据)
+    # PnL 多时间范围数据
     from random import seed, uniform
     seed(42)
-    pnl_points = []
-    val = 0.0
-    for i in range(500):
-        val += uniform(-30, 50)
-        pnl_points.append({"i": i, "value": round(val, 2)})
+
+    def _walk(length, step=1.0, start=0.0):
+        v = start
+        pts = []
+        for i in range(length):
+            v += uniform(-20 * step, 35 * step)
+            pts.append({"i": i, "value": round(v, 2)})
+        return pts
+
+    pnl_by_range = {
+        "1d":   _walk(96, 1.0, 8000.0),       # 96点 (15min)
+        "7d":   _walk(168, 3.0, 7500.0),       # 168点 (1h)
+        "30d":  _walk(360, 8.0, 6000.0),       # 360点 (2h)
+        "180d": _walk(180, 20.0, 3000.0),       # 180天
+        "360d": _walk(360, 30.0, 0.0),          # 360天
+    }
 
     state = DashboardState(
         status="running",
@@ -369,12 +387,16 @@ def _generate_demo_data() -> DashboardState:
         daily_loss=0.0,
         active_positions_count=3,
         max_positions=5,
-        pnl_history=pnl_points,
+        pnl_history=pnl_by_range,  # dict of {range_key: points[]}
         pnl_metrics={
-            "realtime": 552.4,
-            "daily": 128.5,
-            "monthly": 2145.8,
-            "total": 8632.4,
+            "total_assets": 108632.40,
+            "realtime": 552.40,
+            "daily": 128.50,
+            "daily_pct": 1.25,
+            "monthly": 2145.80,
+            "monthly_pct": 8.32,
+            "total": 8632.40,
+            "total_pct": 86.32,
         },
         config={
             "mode": "testnet",

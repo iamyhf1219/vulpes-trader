@@ -68,9 +68,6 @@ body {
   overflow: hidden;
   background: #30363d;
 }
-.main-panels {
-  display: contents;
-}
 .panel {
   background: #0d1117;
   display: flex; flex-direction: column;
@@ -301,7 +298,6 @@ body {
 <!-- ===== Main ===== -->
 <div class="main">
 
-  <div class="main-panels">
   <!-- Left: Positions -->
   <div class="panel">
     <div class="panel-header">📦 持仓 <span id="posCount" style="color:#8b949e;font-weight:400;">(0)</span></div>
@@ -329,7 +325,6 @@ body {
       <div class="risk-item"><span class="risk-label">仓位使用率</span><span class="risk-value" id="usagePct">0%</span></div>
       <div class="risk-bar"><div class="risk-bar-fill low" id="usageBar" style="width:0%"></div></div>
     </div>
-  </div>
   </div>
 
   <!-- PnL Curve (Binance-style) -->

@@ -789,12 +789,12 @@ function drawPnlCurve(points) {
     ctx.setLineDash([]);
   }
 
-  // ---- Gradient fill ----
-  const gradTop = h * 0.3;
+  // ---- Gradient fill (match direction color) ----
+  const lineColor = isUp ? '#3fb950' : '#f85149';
   const gradient = ctx.createLinearGradient(0, padT, 0, h - padB);
-  gradient.addColorStop(0, 'rgba(88, 166, 255, 0.20)');
-  gradient.addColorStop(0.5, 'rgba(88, 166, 255, 0.06)');
-  gradient.addColorStop(1, 'rgba(88, 166, 255, 0.01)');
+  gradient.addColorStop(0, isUp ? 'rgba(63, 185, 80, 0.20)' : 'rgba(248, 81, 73, 0.20)');
+  gradient.addColorStop(0.5, isUp ? 'rgba(63, 185, 80, 0.06)' : 'rgba(248, 81, 73, 0.06)');
+  gradient.addColorStop(1, isUp ? 'rgba(63, 185, 80, 0.01)' : 'rgba(248, 81, 73, 0.01)');
 
   const stepX = chartW / Math.max(points.length - 1, 1);
   ctx.beginPath();
@@ -811,8 +811,9 @@ function drawPnlCurve(points) {
 
   // ---- Line ----
   const isUp = values[values.length - 1] >= values[0];
+  const lineColor = isUp ? '#3fb950' : '#f85149';
   ctx.beginPath();
-  ctx.strokeStyle = isUp ? '#3fb950' : '#f85149';
+  ctx.strokeStyle = lineColor;
   ctx.lineWidth = 2;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';

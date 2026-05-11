@@ -1,0 +1,38 @@
+你是一个前端开发专家。请修复 Vulpes Trader Dashboard 的 PnL 收益曲线面板。
+
+项目文件只有一个: C:\Users\young\.openclaw\workspace\01_codebase\vulpes_trader\dashboard\static\index.html
+
+## 背景
+这是一个加密货币量化交易系统的 Web Dashboard。PnL 面板目前已经有数据（今日盈亏正确显示为持仓 PnL 总和），但曲线图需要完善。
+
+## 需求
+
+### 1. 收益曲线图（canvas）
+- Y 轴显示金额标签（如 0, 200, 400, 600... 根据数据范围自动调整）
+- X 轴显示时间标签（1d显示小时如 00:00, 06:00, 12:00, 18:00；7d/30d显示日期如 D1, D5, D10...；180d/360d显示月份如 M1, M2, M3...）
+- 网格线（水平虚线）
+- 曲线终点加圆点标记
+- 渐变填充区域（从曲线到底部）
+
+### 2. 时间选择器
+- 已有 1天/7天/30天/180天/360天 按钮
+- 点击时请求 /api/pnl_history?range=XXX 获取数据
+- 调用 updatePnlChart(data) 更新曲线和指标
+
+### 3. JS 函数说明（已有，需完善）
+- updatePnlChart(data): data.points 是曲线数据数组，data.metrics 包含 total_assets/daily/daily_pct
+- updatePnlMetrics(metrics): 更新总资产和今日盈亏 DOM 元素
+- drawPnlCurve(points): 在 canvas 上绘制带坐标轴的曲线
+
+### 4. 布局保持
+- PnL 面板在页面顶部
+- 总资产大字体显示
+- 今日盈亏显示金额和百分比（绿色涨红色跌）
+- 深色主题（#0d1117 背景）
+
+## 约束
+- 不修改后端 server.py
+- 不引入外部 JS 库
+- 纯 canvas + vanilla JavaScript
+- 保持深色主题风格
+- 不要改动数据逻辑（今日盈亏已经正确等于持仓总和）

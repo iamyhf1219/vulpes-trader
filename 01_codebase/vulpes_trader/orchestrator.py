@@ -94,11 +94,14 @@ class VulpesOrchestrator:
         # 启动 WS 连接
         await self.ws_manager.connect()
 
-        # 注册数据回调
-        await self.ws_manager.subscribe_ohlcv(self._on_ohlcv)
+        # 注册回调
         self.supplementary.on_data(self._on_supplementary)
         self.square_monitor.on_update(self._on_heat_update)
         self.news_engine.on_event(self._on_news_event)
+
+        # REST 填充 KlineEngine（WS testnet 不可靠）
+        await self.kline_engine.seed(self.exchange_connector, self.ws_manager.symbols, self.ws_manager.timeframes)
+        asyncio.create_task(self._kline_poll_loop())
 
         # 启动定时采集
         asyncio.create_task(self.supplementary.start())
@@ -109,12 +112,11 @@ class VulpesOrchestrator:
 
         logger.info("All modules started")
 
-    async def _on_ohlcv(self, data: dict):
-        """处理 K 线数据"""
-        symbol = data["symbol"]
-        timeframe = data["timeframe"]
-        for candle in data["data"]:
-            self.kline_engine.update(symbol, timeframe, candle)
+    async def _kline_poll_loop(self):
+        """REST 轮询更新 K 线（每 60s）"""
+        while self.running:
+            await asyncio.sleep(60)
+            await self.kline_engine.poll(self.exchange_connector, self.ws_manager.symbols, self.ws_manager.timeframes)
 
     async def _on_supplementary(self, data):
         """处理 OI/费率数据"""

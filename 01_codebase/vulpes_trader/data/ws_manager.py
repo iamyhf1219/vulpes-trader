@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from typing import List, Callable, Awaitable, Optional, Dict, Any
-from ccxt.pro import binance as Binance
+from ccxt.pro import binanceusdm as Binance
 from vulpes_trader.config import config
 from vulpes_trader.utils.retry import async_retry
 

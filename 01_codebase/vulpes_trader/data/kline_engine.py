@@ -62,6 +62,33 @@ class KlineEngine:
             return latest
         return None
 
+    async def seed(self, exchange, symbols: list, timeframes: list, limit: int = 200):
+        """启动时从交易所拉取历史 K 线"""
+        for sym in symbols:
+            base = sym.split(":")[0]
+            for tf in timeframes:
+                try:
+                    ohlcv = await exchange._exec("fetch_ohlcv", base, tf, limit=limit)
+                    if ohlcv:
+                        for candle in ohlcv:
+                            self.update(sym, tf, candle)
+                        logger.info("K线: %s %s %d candles", sym, tf, len(ohlcv))
+                except Exception as e:
+                    logger.warning("K线加载失败 %s %s: %s", sym, tf, e)
+
+    async def poll(self, exchange, symbols: list, timeframes: list):
+        """轮询增量更新"""
+        for sym in symbols:
+            base = sym.split(":")[0]
+            for tf in timeframes:
+                try:
+                    ohlcv = await exchange._exec("fetch_ohlcv", base, tf, limit=2)
+                    if ohlcv:
+                        for candle in ohlcv:
+                            self.update(sym, tf, candle)
+                except Exception:
+                    pass
+
     def clean_old_data(self, max_age_hours: int = 24):
         """清理过期数据（手动触发）"""
         now = datetime.now().timestamp() * 1000

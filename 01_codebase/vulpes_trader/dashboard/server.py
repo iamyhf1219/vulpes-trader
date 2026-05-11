@@ -1,0 +1,301 @@
+"""Vulpes Trader Web Dashboard — FastAPI 实时监控面板"""
+
+import asyncio
+import json
+import logging
+import os
+from dataclasses import dataclass, field, asdict
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Set
+
+import uvicorn
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+
+logger = logging.getLogger("vulpes.dashboard")
+
+# ---------------------------------------------------------------------------
+# 数据注入回调 —— 外部将数据 push 进 dashboard
+# ---------------------------------------------------------------------------
+
+_DEFAULT_PORT = int(os.getenv("VULPES_DASHBOARD_PORT", "8765"))
+_STATIC_DIR = Path(__file__).parent / "static"
+
+
+@dataclass
+class DashboardState:
+    """Dashboard 全局快照状态"""
+    status: str = "stopped"  # running / stopped / error
+    mode: str = "testnet"    # testnet / mainnet
+    uptime_seconds: float = 0.0
+
+    positions: List[Dict[str, Any]] = field(default_factory=list)
+    signals: List[Dict[str, Any]] = field(default_factory=list)
+    logs: List[Dict[str, Any]] = field(default_factory=list)
+
+    total_pnl: float = 0.0
+    win_rate: float = 0.0
+    trade_count: int = 0
+
+    circuit_breaker_tripped: bool = False
+    max_leverage: int = 20
+    daily_loss: float = 0.0
+    active_positions_count: int = 0
+    max_positions: int = 5
+
+    config: Dict[str, Any] = field(default_factory=dict)
+
+    _max_logs: int = 200
+
+
+class DashboardServer:
+    """
+    Web Dashboard 服务器
+
+    使用方式:
+        dash = DashboardServer()
+        dash.register_callbacks(status_cb=..., positions_cb=...)
+        await dash.start()
+        ...
+        await dash.stop()
+    """
+
+    def __init__(self, port: int = _DEFAULT_PORT):
+        self.port = port
+        self._app: Optional[FastAPI] = None
+        self._server: Optional[uvicorn.Server] = None
+        self._state = DashboardState()
+        self._listeners: Set[WebSocket] = set()
+
+        # 数据回调（外部注册）
+        self._status_cb: Optional[Callable[[], Dict[str, Any]]] = None
+        self._positions_cb: Optional[Callable[[], List[Dict[str, Any]]]] = None
+        self._performance_cb: Optional[Callable[[], Dict[str, Any]]] = None
+        self._signals_cb: Optional[Callable[[], List[Dict[str, Any]]]] = None
+        self._config_cb: Optional[Callable[[], Dict[str, Any]]] = None
+
+        self._build_app()
+
+    # ------------------------------------------------------------------
+    # 数据注入
+    # ------------------------------------------------------------------
+
+    def register_callbacks(
+        self,
+        status: Optional[Callable[[], Dict[str, Any]]] = None,
+        positions: Optional[Callable[[], List[Dict[str, Any]]]] = None,
+        performance: Optional[Callable[[], Dict[str, Any]]] = None,
+        signals: Optional[Callable[[], List[Dict[str, Any]]]] = None,
+        config: Optional[Callable[[], Dict[str, Any]]] = None,
+    ):
+        """注册数据回调函数，dashboard 轮询时调用"""
+        if status:
+            self._status_cb = status
+        if positions:
+            self._positions_cb = positions
+        if performance:
+            self._performance_cb = performance
+        if signals:
+            self._signals_cb = signals
+        if config:
+            self._config_cb = config
+
+    def inject_state(self, state: DashboardState):
+        """直接注入完整状态快照"""
+        self._state = state
+
+    def push_log(self, level: str, message: str, source: str = "system"):
+        """推送日志到 dashboard"""
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "level": level,
+            "message": message,
+            "source": source,
+        }
+        self._state.logs.append(entry)
+        if len(self._state.logs) > self._state._max_logs:
+            self._state.logs = self._state.logs[-self._state._max_logs:]
+
+    # ------------------------------------------------------------------
+    # 广播
+    # ------------------------------------------------------------------
+
+    async def broadcast(self, event_type: str, data: Any):
+        """向所有连接的 WebSocket 客户端广播消息"""
+        payload = json.dumps({"type": event_type, "data": data}, default=str)
+        dead: List[WebSocket] = []
+        for ws in self._listeners:
+            try:
+                await ws.send_text(payload)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self._listeners.discard(ws)
+
+    # ------------------------------------------------------------------
+    # 生命周期
+    # ------------------------------------------------------------------
+
+    async def start(self):
+        """启动 uvicorn 服务器（非阻塞）"""
+        if self._server:
+            logger.warning("Dashboard 已在运行")
+            return
+
+        config = uvicorn.Config(
+            self._app,
+            host="127.0.0.1",
+            port=self.port,
+            log_level="warning",
+            access_log=False,
+        )
+        self._server = uvicorn.Server(config)
+        # 异步启动，不阻塞主循环
+        asyncio.create_task(self._server.serve())
+        await asyncio.sleep(0.5)  # 给 uvicorn 一点时间完成绑定
+        logger.info("Dashboard 启动完成: http://127.0.0.1:%d", self.port)
+        self._state.status = "running"
+
+    async def stop(self):
+        """停止服务器"""
+        if self._server:
+            self._server.should_exit = True
+            self._server = None
+        self._state.status = "stopped"
+        logger.info("Dashboard 已停止")
+
+    # ------------------------------------------------------------------
+    # FastAPI 路由构建
+    # ------------------------------------------------------------------
+
+    def _collect_status(self) -> Dict[str, Any]:
+        if self._status_cb:
+            return self._status_cb()
+        return {
+            "status": self._state.status,
+            "mode": self._state.mode,
+            "uptime_seconds": self._state.uptime_seconds,
+            "active_positions": self._state.active_positions_count,
+            "max_positions": self._state.max_positions,
+            "circuit_breaker_tripped": self._state.circuit_breaker_tripped,
+        }
+
+    def _collect_positions(self) -> List[Dict[str, Any]]:
+        if self._positions_cb:
+            return self._positions_cb()
+        return self._state.positions
+
+    def _collect_performance(self) -> Dict[str, Any]:
+        if self._performance_cb:
+            return self._performance_cb()
+        return {
+            "total_pnl": self._state.total_pnl,
+            "win_rate": self._state.win_rate,
+            "trade_count": self._state.trade_count,
+            "daily_loss": self._state.daily_loss,
+        }
+
+    def _collect_signals(self) -> List[Dict[str, Any]]:
+        if self._signals_cb:
+            return self._signals_cb()
+        return self._state.signals
+
+    def _collect_config(self) -> Dict[str, Any]:
+        if self._config_cb:
+            return self._config_cb()
+        return self._state.config
+
+    def _build_app(self):
+        """构建 FastAPI 应用"""
+        app = FastAPI(title="Vulpes Trader Dashboard")
+
+        # ---- 静态文件 ----
+        if _STATIC_DIR.exists():
+            app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
+        # ---- REST API ----
+
+        @app.get("/")
+        async def index():
+            """返回前端页面"""
+            index_path = _STATIC_DIR / "index.html"
+            if index_path.exists():
+                return HTMLResponse(index_path.read_text(encoding="utf-8"))
+            return HTMLResponse("<h1>Vulpes Trader Dashboard</h1><p>Static file not found</p>")
+
+        @app.get("/api/status")
+        async def api_status():
+            return self._collect_status()
+
+        @app.get("/api/positions")
+        async def api_positions():
+            return self._collect_positions()
+
+        @app.get("/api/performance")
+        async def api_performance():
+            return self._collect_performance()
+
+        @app.get("/api/signals")
+        async def api_signals():
+            return self._collect_signals()
+
+        @app.get("/api/config")
+        async def api_config():
+            return self._collect_config()
+
+        # ---- WebSocket ----
+
+        @app.websocket("/ws")
+        async def websocket_endpoint(ws: WebSocket):
+            await ws.accept()
+            self._listeners.add(ws)
+            logger.info("Dashboard WebSocket 客户端已连接 (%d 在线)", len(self._listeners))
+            try:
+                while True:
+                    # 接收客户端消息（心跳保持连接）
+                    msg = await ws.receive_text()
+                    if msg == "ping":
+                        await ws.send_text(json.dumps({"type": "pong"}))
+            except WebSocketDisconnect:
+                pass
+            except Exception:
+                pass
+            finally:
+                self._listeners.discard(ws)
+                logger.info("Dashboard WebSocket 客户端已断开 (%d 在线)", len(self._listeners))
+
+        self._app = app
+
+
+# ---------------------------------------------------------------------------
+# 便利函数 —— 在不创建实例时也能快速导入 app（uvicorn CLI 用）
+# ---------------------------------------------------------------------------
+
+_dash_instance: Optional[DashboardServer] = None
+app: Optional[FastAPI] = None
+
+
+def _ensure_instance(port: int = _DEFAULT_PORT) -> DashboardServer:
+    """确保单例已创建（内部使用）"""
+    global _dash_instance, app
+    if _dash_instance is None:
+        _dash_instance = DashboardServer(port=port)
+        app = _dash_instance._app
+    return _dash_instance
+
+
+def create_dashboard(port: int = _DEFAULT_PORT) -> DashboardServer:
+    """创建并返回一个 DashboardServer 实例（单例）"""
+    return _ensure_instance(port=port)
+
+
+def start_dashboard(port: int = _DEFAULT_PORT) -> DashboardServer:
+    """创建并启动 dashboard（便捷入口）"""
+    dash = _ensure_instance(port=port)
+    return dash
+
+
+# 模块导入时自动初始化（支持 uvicorn vulpes_trader.dashboard.server:app 启动）
+_ensure_instance()

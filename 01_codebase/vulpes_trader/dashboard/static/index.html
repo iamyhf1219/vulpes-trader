@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vulpes Trader Dashboard 🦊</title>
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: 'Segoe UI', -apple-system, system-ui, sans-serif;
+  background: #0d1117;
+  color: #c9d1d9;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #161b22; }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+/* ===== Top Bar ===== */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  flex-shrink: 0;
+}
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.logo { font-size: 18px; font-weight: 700; color: #58a6ff; }
+.logo span { color: #f0883e; }
+.status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 12px;
+  font-size: 12px; font-weight: 600;
+}
+.status-badge.running { background: #0b2e1a; color: #3fb950; border: 1px solid #3fb950; }
+.status-badge.stopped { background: #2d0f0f; color: #f85149; border: 1px solid #f85149; }
+.status-badge.error   { background: #2d0f0f; color: #f0883e; border: 1px solid #f0883e; }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.dot.running { background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+.dot.stopped { background: #f85149; }
+.dot.error   { background: #f0883e; }
+
+.mode-badge {
+  padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+}
+.mode-badge.testnet { background: #1f2d1f; color: #7ee787; border: 1px solid #238636; }
+.mode-badge.mainnet { background: #2d1f1f; color: #ffa657; border: 1px solid #9e6a03; }
+
+.topbar-right { display: flex; align-items: center; gap: 16px; font-size: 12px; color: #8b949e; }
+.stat-num { color: #c9d1d9; font-weight: 600; }
+.cb-tripped { color: #f85149; font-weight: 700; }
+
+/* ===== Main Content ===== */
+.main {
+  display: grid;
+  grid-template-columns: 320px 1fr 280px;
+  gap: 1px;
+  flex: 1;
+  overflow: hidden;
+  background: #30363d;
+}
+.panel {
+  background: #0d1117;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 8px 12px;
+  font-size: 12px; font-weight: 600; text-transform: uppercase;
+  color: #8b949e; letter-spacing: 0.5px;
+  background: #161b22;
+  border-bottom: 1px solid #21262d;
+  flex-shrink: 0;
+}
+.panel-body {
+  flex: 1; overflow-y: auto;
+  padding: 8px;
+}
+
+/* ===== Positions ===== */
+.pos-item {
+  padding: 8px; margin-bottom: 6px;
+  background: #161b22;
+  border-radius: 6px;
+  border-left: 3px solid #30363d;
+}
+.pos-item.long  { border-left-color: #3fb950; }
+.pos-item.short { border-left-color: #f85149; }
+.pos-row { display: flex; justify-content: space-between; margin-bottom: 3px; }
+.pos-label { color: #8b949e; font-size: 11px; }
+.pos-value { font-weight: 600; font-size: 12px; }
+.pos-pnl.positive { color: #3fb950; }
+.pos-pnl.negative { color: #f85149; }
+.entry-tag {
+  font-size: 10px; padding: 1px 5px; border-radius: 3px;
+  background: #21262d; color: #8b949e;
+}
+
+/* ===== Signals ===== */
+.sig-item {
+  padding: 6px 8px; margin-bottom: 4px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: #161b22;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.sig-dir {
+  font-weight: 700; padding: 1px 6px; border-radius: 3px;
+}
+.sig-dir.long  { background: #0b2e1a; color: #3fb950; }
+.sig-dir.short { background: #2d0f0f; color: #f85149; }
+.sig-dir.exit  { background: #2d1a0f; color: #f0883e; }
+.sig-conf { color: #8b949e; font-size: 11px; }
+.sig-time { color: #484f58; font-size: 10px; }
+.sig-source { font-size: 10px; color: #58a6ff; }
+
+/* ===== Risk Panel ===== */
+.risk-item {
+  display: flex; justify-content: space-between;
+  padding: 6px 0; border-bottom: 1px solid #21262d;
+}
+.risk-item:last-child { border-bottom: none; }
+.risk-label { color: #8b949e; }
+.risk-value { font-weight: 600; }
+.risk-bar {
+  width: 100%; height: 6px; background: #21262d;
+  border-radius: 3px; margin-top: 8px; overflow: hidden;
+}
+.risk-bar-fill {
+  height: 100%; border-radius: 3px;
+  transition: width 0.5s ease;
+}
+.risk-bar-fill.low    { background: #3fb950; }
+.risk-bar-fill.medium { background: #f0883e; }
+.risk-bar-fill.high   { background: #f85149; }
+
+/* ===== Logs ===== */
+.log-panel {
+  height: 120px; flex-shrink: 0;
+  background: #0d1117;
+  border-top: 1px solid #30363d;
+  display: flex; flex-direction: column;
+}
+.log-body {
+  flex: 1; overflow-y: auto;
+  padding: 4px 12px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.log-line { white-space: nowrap; }
+.log-line .log-time { color: #484f58; }
+.log-line.INFO    { color: #c9d1d9; }
+.log-line.WARN    { color: #f0883e; }
+.log-line.ERROR   { color: #f85149; }
+.log-line.DEBUG   { color: #8b949e; }
+
+/* ===== Empty State ===== */
+.empty-state {
+  display: flex; align-items: center; justify-content: center;
+  height: 60px; color: #484f58; font-size: 12px;
+}
+
+/* ===== Connection ===== */
+.conn-badge {
+  padding: 2px 8px; border-radius: 4px;
+  font-size: 11px;
+}
+.conn-badge.connected    { color: #3fb950; }
+.conn-badge.disconnected { color: #f85149; }
+
+/* ===== Responsive ===== */
+@media (max-width: 900px) {
+  .main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== Top Bar ===== -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">Vulpes <span>Trader</span> 🦊</div>
+    <span class="status-badge stopped" id="statusBadge"><span class="dot stopped"></span><span id="statusText">停止</span></span>
+    <span class="mode-badge testnet" id="modeBadge">testnet</span>
+  </div>
+  <div class="topbar-right">
+    <span>📊 交易: <span class="stat-num" id="tradeCount">0</span></span>
+    <span>总 PnL: <span class="stat-num" id="totalPnl">0.00</span></span>
+    <span>胜率: <span class="stat-num" id="winRate">0%</span></span>
+    <span class="conn-badge disconnected" id="connBadge">🔌 未连接</span>
+  </div>
+</div>
+
+<!-- ===== Main ===== -->
+<div class="main">
+
+  <!-- Left: Positions -->
+  <div class="panel">
+    <div class="panel-header">📦 持仓 <span id="posCount" style="color:#8b949e;font-weight:400;">(0)</span></div>
+    <div class="panel-body" id="positionsPanel">
+      <div class="empty-state">暂无持仓</div>
+    </div>
+  </div>
+
+  <!-- Center: Signals -->
+  <div class="panel">
+    <div class="panel-header">📶 信号</div>
+    <div class="panel-body" id="signalsPanel">
+      <div class="empty-state">暂无信号</div>
+    </div>
+  </div>
+
+  <!-- Right: Risk -->
+  <div class="panel">
+    <div class="panel-header">⚠️ 风控</div>
+    <div class="panel-body" id="riskPanel">
+      <div class="risk-item"><span class="risk-label">熔断器</span><span class="risk-value" id="cbStatus">✅ 正常</span></div>
+      <div class="risk-item"><span class="risk-label">最大杠杆</span><span class="risk-value" id="maxLev">20x</span></div>
+      <div class="risk-item"><span class="risk-label">活跃持仓</span><span class="risk-value" id="actPos">0 / 5</span></div>
+      <div class="risk-item"><span class="risk-label">当日亏损</span><span class="risk-value" id="dailyLoss">0.00</span></div>
+      <div class="risk-item"><span class="risk-label">仓位使用率</span><span class="risk-value" id="usagePct">0%</span></div>
+      <div class="risk-bar"><div class="risk-bar-fill low" id="usageBar" style="width:0%"></div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== Logs ===== -->
+<div class="log-panel">
+  <div class="panel-header" style="cursor:pointer;" onclick="toggleLog()">
+    📝 日志 <span style="color:#484f58;font-weight:400;" id="logCount">(0)</span>
+  </div>
+  <div class="log-body" id="logBody"></div>
+</div>
+
+<script>
+// ==============================================================
+// Dashboard 前端 — WebSocket 实时数据
+// ==============================================================
+
+const WS_URL = `ws://${location.host}/ws`;
+
+// ---- State ----
+let ws = null;
+let reconnectTimer = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_DELAY = 30000;
+
+// ---- DOM ----
+const $ = (id) => document.getElementById(id);
+
+function el(tag, cls, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html) e.innerHTML = html;
+  return e;
+}
+
+// ---- WebSocket ----
+function connectWS() {
+  if (ws && ws.readyState === WebSocket.OPEN) return;
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    reconnectAttempts = 0;
+    $('connBadge').textContent = '🔗 已连接';
+    $('connBadge').className = 'conn-badge connected';
+    // 拉取初始数据
+    fetchAll();
+    // 启动心跳
+    heartbeat();
+  };
+
+  ws.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      handleWSMessage(msg);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  ws.onclose = () => {
+    $('connBadge').textContent = '🔌 未连接';
+    $('connBadge').className = 'conn-badge disconnected';
+    scheduleReconnect();
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+function scheduleReconnect() {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), MAX_RECONNECT_DELAY);
+  reconnectAttempts++;
+  reconnectTimer = setTimeout(connectWS, delay);
+}
+
+function heartbeat() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send('ping');
+  }
+  setTimeout(heartbeat, 30000);
+}
+
+function handleWSMessage(msg) {
+  switch (msg.type) {
+    case 'pong': break;
+    case 'status':   updateStatus(msg.data); break;
+    case 'positions': updatePositions(msg.data); break;
+    case 'signals':  updateSignals(msg.data); break;
+    case 'log':      appendLog(msg.data); break;
+    case 'performance': updatePerformance(msg.data); break;
+    case 'risk':     updateRisk(msg.data); break;
+    default: break;
+  }
+}
+
+// ---- HTTP Fetch ----
+async function fetchAll() {
+  try {
+    const [status, positions, perf, signals, config] = await Promise.all([
+      fetch('/api/status').then(r => r.json()),
+      fetch('/api/positions').then(r => r.json()),
+      fetch('/api/performance').then(r => r.json()),
+      fetch('/api/signals').then(r => r.json()),
+      fetch('/api/config').then(r => r.json()),
+    ]);
+    updateStatus(status);
+    updatePositions(positions);
+    updatePerformance(perf);
+    updateSignals(signals);
+    updateConfig(config);
+  } catch (e) {
+    console.warn('Fetch initial data failed:', e);
+  }
+}
+
+// ---- Update Functions ----
+
+function updateStatus(data) {
+  const status = data.status || 'stopped';
+  const badge = $('statusBadge');
+  const dot = badge.querySelector('.dot');
+  const text = $('statusText');
+
+  badge.className = 'status-badge ' + status;
+  dot.className = 'dot ' + status;
+
+  const labels = { running: '运行中', stopped: '已停止', error: '异常' };
+  text.textContent = labels[status] || status;
+
+  if (data.mode) {
+    const mb = $('modeBadge');
+    mb.textContent = data.mode;
+    mb.className = 'mode-badge ' + data.mode;
+  }
+
+  if (data.circuit_breaker_tripped !== undefined) {
+    updateRisk({
+      circuit_breaker_tripped: data.circuit_breaker_tripped,
+      max_leverage: data.max_leverage,
+      active_positions: data.active_positions,
+      max_positions: data.max_positions,
+    });
+  }
+}
+
+function updatePositions(positions) {
+  const panel = $('positionsPanel');
+  const count = Array.isArray(positions) ? positions.length : 0;
+  $('posCount').textContent = `(${count})`;
+
+  if (!count) {
+    panel.innerHTML = '<div class="empty-state">暂无持仓</div>';
+    return;
+  }
+
+  panel.innerHTML = '';
+  positions.forEach(p => {
+    const side = (p.side || '').toLowerCase();
+    const pnl = parseFloat(p.pnl) || 0;
+    const pnlCls = pnl >= 0 ? 'positive' : 'negative';
+
+    const div = el('div', `pos-item ${side}`);
+    div.innerHTML = `
+      <div class="pos-row">
+        <span class="pos-value">${p.symbol || '—'}</span>
+        <span class="pos-pnl ${pnlCls}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</span>
+      </div>
+      <div class="pos-row">
+        <span class="pos-label">方向</span>
+        <span class="pos-value" style="text-transform:uppercase">${side}</span>
+      </div>
+      <div class="pos-row">
+        <span class="pos-label">数量</span>
+        <span class="pos-value">${p.size || 0}</span>
+      </div>
+      <div class="pos-row">
+        <span class="pos-label">入场</span>
+        <span class="pos-value">${p.entry_price ? p.entry_price.toFixed(2) : '—'}</span>
+      </div>
+      <div class="pos-row">
+        <span class="pos-label">当前价</span>
+        <span class="pos-value">${p.current_price ? p.current_price.toFixed(2) : '—'}</span>
+      </div>
+      <div class="pos-row">
+        <span class="pos-label">杠杆</span>
+        <span class="pos-value">${p.leverage || 1}x</span>
+      </div>
+    `;
+    panel.appendChild(div);
+  });
+}
+
+function updateSignals(signals) {
+  const panel = $('signalsPanel');
+  const list = Array.isArray(signals) ? signals : [];
+
+  if (!list.length) {
+    panel.innerHTML = '<div class="empty-state">暂无信号</div>';
+    return;
+  }
+
+  panel.innerHTML = '';
+  list.slice(0, 50).forEach(s => {
+    const dir = (s.direction || '').toLowerCase();
+    const conf = typeof s.confidence === 'number' ? (s.confidence * 100).toFixed(0) : '—';
+    const source = s.source || '—';
+    const ts = s.timestamp || s.time || '';
+
+    let dirCls = '';
+    if (dir.includes('long')) dirCls = 'long';
+    else if (dir.includes('short')) dirCls = 'short';
+    else if (dir.includes('exit')) dirCls = 'exit';
+
+    const div = el('div', 'sig-item');
+    div.innerHTML = `
+      <div>
+        <span class="sig-dir ${dirCls}">${dir.toUpperCase()}</span>
+        <span class="sig-source">${source}</span>
+      </div>
+      <div>
+        <span class="sig-conf">${conf}%</span>
+        <span class="sig-time">${ts.slice(0, 19) || ''}</span>
+      </div>
+    `;
+    panel.appendChild(div);
+  });
+}
+
+function updatePerformance(data) {
+  if (!data) return;
+  const pnl = parseFloat(data.total_pnl) || 0;
+  $('totalPnl').textContent = pnl >= 0 ? `+${pnl.toFixed(2)}` : pnl.toFixed(2);
+  $('totalPnl').style.color = pnl >= 0 ? '#3fb950' : '#f85149';
+  $('tradeCount').textContent = data.trade_count || 0;
+  const wr = (data.win_rate || 0);
+  $('winRate').textContent = typeof wr === 'number' ? `${(wr * 100).toFixed(0)}%` : `${wr}%`;
+}
+
+function updateRisk(data) {
+  if (!data) return;
+  $('cbStatus').textContent = data.circuit_breaker_tripped ? '🔴 熔断中' : '✅ 正常';
+  $('cbStatus').style.color = data.circuit_breaker_tripped ? '#f85149' : '#3fb950';
+  $('maxLev').textContent = (data.max_leverage || 20) + 'x';
+  $('actPos').textContent = `${data.active_positions || 0} / ${data.max_positions || 5}`;
+  $('dailyLoss').textContent = data.daily_loss !== undefined ? data.daily_loss.toFixed(2) : '0.00';
+
+  const total = data.max_positions || 5;
+  const active = data.active_positions || 0;
+  const pct = total > 0 ? (active / total * 100) : 0;
+  $('usagePct').textContent = pct.toFixed(0) + '%';
+  const bar = $('usageBar');
+  bar.style.width = pct + '%';
+  bar.className = 'risk-bar-fill ' + (pct < 40 ? 'low' : pct < 70 ? 'medium' : 'high');
+}
+
+function updateConfig(data) {
+  // 留作扩展
+}
+
+function appendLog(data) {
+  const body = $('logBody');
+  const level = data.level || 'INFO';
+  const msg = data.message || '';
+  const ts = (data.timestamp || '').slice(11, 19);
+  const line = el('div', `log-line ${level}`);
+  line.textContent = `[${ts}] [${level}] ${msg}`;
+  body.appendChild(line);
+  body.scrollTop = body.scrollHeight;
+
+  const cnt = body.children.length;
+  $('logCount').textContent = `(${cnt})`;
+  if (cnt > 500) {
+    while (body.children.length > 400) body.removeChild(body.firstChild);
+  }
+}
+
+function toggleLog() {
+  const body = $('logBody');
+  const panel = body.closest('.log-panel');
+  if (panel.style.display === 'none') {
+    panel.style.display = 'flex';
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+// ---- Init ----
+document.addEventListener('DOMContentLoaded', () => {
+  connectWS();
+  // 每5秒轮询 REST 端作为备胎
+  setInterval(fetchAll, 5000);
+});
+</script>
+</body>
+</html>

@@ -32,11 +32,14 @@ class WSManager:
         self.exchange = Binance({
             "apiKey": exchange_config["apiKey"],
             "secret": exchange_config["secret"],
-            "options": exchange_config.get("options", {}),
+            "options": {
+                "defaultType": "future" if config.mode == "mainnet" else "spot",
+                "adjustForTimeDifference": True,
+            },
         })
-        if "urls" in exchange_config:
-            self.exchange.urls = exchange_config["urls"]
-        logger.info("WebSocket 连接成功: symbols=%s", self.symbols[:3])
+        if config.mode == "testnet":
+            self.exchange.set_sandbox_mode(True)
+        logger.info("WebSocket 连接成功: mode=%s symbols=%s", config.mode, self.symbols[:3])
 
     async def subscribe_tickers(self, handler: Callable[[Dict], Awaitable[None]]):
         """订阅实时 Ticker"""

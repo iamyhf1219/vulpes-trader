@@ -40,12 +40,14 @@ class SupplementaryCollector:
             # Lazy import to avoid startup dependency on ccxt REST
             from ccxt import binance as BinanceRest
             exchange_config = config.exchange_config
-            exchange_config["options"] = {"defaultType": "swap"}
-            if "urls" not in exchange_config:
+            exchange_config["options"] = {"defaultType": "future" if config.mode == "mainnet" else "spot"}
+            if config.mode == "mainnet":
                 exchange_config["urls"] = {}
             if "api" not in exchange_config["urls"]:
                 exchange_config["urls"]["api"] = {}
             self._exchange = BinanceRest(exchange_config)
+            if config.mode == "testnet":
+                self._exchange.set_sandbox_mode(True)
 
     async def start(self, oi_interval: int = 60, funding_interval: int = 3600):
         """启动定时采集"""
@@ -114,6 +116,10 @@ class SupplementaryCollector:
         self._handlers.append(handler)
 
     async def close(self):
+        self._running = False
+        if self._exchange:
+            pass  # sync ccxt, no close needed
+        logger.info("补充数据采集器已停止")
         """安全关闭"""
         self._running = False
         if self._exchange:

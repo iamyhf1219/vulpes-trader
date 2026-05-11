@@ -22,6 +22,7 @@ from vulpes_trader.risk.manager import RiskManager
 from vulpes_trader.execution.order_manager import OrderManager, OrderType
 from vulpes_trader.execution.position_manager import PositionManager
 from vulpes_trader.execution.stop_loss import StopLossManager
+from vulpes_trader.execution.exchange_connector import ExchangeConnector
 from vulpes_trader.evolution.reviewer import TradeReviewer
 from vulpes_trader.evolution.optimizer import ParameterOptimizer
 from vulpes_trader.evolution.knowledge_base import KnowledgeBase
@@ -64,9 +65,12 @@ class VulpesOrchestrator:
         self.event_analyzer = EventAnalyzer(news_engine=self.news_engine)
         self.fusion = SignalFusionEngine()
 
+        # 交易所连接
+        self.exchange_connector = ExchangeConnector()
+
         # 风控与执行
         self.risk_manager = RiskManager()
-        self.order_manager = OrderManager()
+        self.order_manager = OrderManager(exchange=self.exchange_connector)
         self.position_manager = PositionManager()
         self.stop_loss_manager = StopLossManager()
 
@@ -79,6 +83,13 @@ class VulpesOrchestrator:
         """启动所有模块"""
         logger.info("Vulpes Trader starting...")
         self.running = True
+
+        # 连接交易所
+        try:
+            await self.exchange_connector.connect()
+            logger.info("交易所连接成功")
+        except Exception as e:
+            logger.warning("交易所连接失败（将继续以模拟模式运行）: %s", e)
 
         # 启动 WS 连接
         await self.ws_manager.connect()
@@ -254,4 +265,5 @@ class VulpesOrchestrator:
         await self.ws_manager.close()
         await self.square_monitor.close()
         await self.supplementary.close()
+        await self.exchange_connector.close()
         logger.info("Vulpes Trader stopped")

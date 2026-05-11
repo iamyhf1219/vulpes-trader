@@ -46,6 +46,7 @@ class DashboardState:
     max_positions: int = 5
 
     config: Dict[str, Any] = field(default_factory=dict)
+    trade_history: List[Dict[str, Any]] = field(default_factory=list)  # 历史成交
     pnl_history: List[Dict[str, Any]] = field(default_factory=list)  # PnL 时间序列
     pnl_metrics: Dict[str, float] = field(default_factory=lambda: {
         "realtime": 0.0, "daily": 0.0, "monthly": 0.0, "total": 0.0,
@@ -211,6 +212,11 @@ class DashboardServer:
             return self._config_cb()
         return self._state.config
 
+    def _collect_history(self) -> List[Dict[str, Any]]:
+        if self._state.trade_history:
+            return self._state.trade_history
+        return []
+
     def _collect_pnl_history(self, range_key: str = "30d") -> Dict[str, Any]:
         raw = self._state.pnl_history
         if isinstance(raw, dict):
@@ -262,6 +268,10 @@ class DashboardServer:
         @app.get("/api/config")
         async def api_config():
             return self._collect_config()
+
+        @app.get("/api/history")
+        async def api_history():
+            return self._collect_history()
 
         @app.get("/api/pnl_history")
         async def api_pnl_history(range: str = "30d"):
@@ -319,9 +329,30 @@ def start_dashboard(port: int = _DEFAULT_PORT) -> DashboardServer:
     return dash
 
 
+def _generate_pnl_walk(
+    n: int,
+    hours_back: float,
+    start_val: float = 550.0,
+    volatility: float = 120.0,
+) -> List[Dict[str, Any]]:
+    """生成随机游走 PnL 时间序列。"""
+    from random import gauss
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    step = hours_back / max(n - 1, 1)
+    pts = []
+    v = start_val
+    for i in range(n):
+        t = now - timedelta(hours=hours_back - i * step)
+        v += gauss(0, volatility / max(n, 1) ** 0.5 * 2)
+        pts.append({"time": t.isoformat(), "value": round(v, 2)})
+    return pts
+
+
 def _generate_demo_data() -> DashboardState:
     """生成模拟交易数据用于 UI 展示"""
     from random import uniform, choice, random
+    from datetime import timedelta
     now = datetime.now(timezone.utc).isoformat()
 
     positions = [
@@ -356,6 +387,39 @@ def _generate_demo_data() -> DashboardState:
     # 初始 PnL = 持仓 PnL 总和
     init_pnl = sum(p["pnl"] for p in positions)  # 552.4
 
+    # 各时间范围的 PnL 历史数据
+    pnl_history = {
+        "1d": _generate_pnl_walk(96, 24, start_val=480, volatility=60),
+        "7d": _generate_pnl_walk(168, 168, start_val=200, volatility=180),
+        "30d": _generate_pnl_walk(360, 720, start_val=-150, volatility=350),
+        "180d": _generate_pnl_walk(180, 4320, start_val=-300, volatility=600),
+        "360d": _generate_pnl_walk(360, 8640, start_val=-500, volatility=800),
+    }
+
+    # 最新 PnL 值
+    latest_pnl = pnl_history["1d"][-1]["value"]
+
+    # 模拟历史成交记录
+    from datetime import timedelta
+    now_utc = datetime.now(timezone.utc)
+    d = now_utc.day
+    history = [
+        {"symbol": "BTC/USDT", "side": "long",  "entry": 58200, "exit": 61050,  "qty": 0.1,  "leverage": 5, "pnl": 142.50, "pnl_pct": 2.45, "reason": "止盈", "time": (now_utc - timedelta(days=1)).isoformat()},
+        {"symbol": "ETH/USDT", "side": "long",  "entry": 3050,  "exit": 3180,   "qty": 3.0,  "leverage": 3, "pnl": 390.00, "pnl_pct": 4.26, "reason": "信号平仓", "time": (now_utc - timedelta(days=2)).isoformat()},
+        {"symbol": "SOL/USDT", "side": "short", "entry": 148.5,"exit": 140.2,  "qty": 10.0, "leverage": 2, "pnl": 83.00,  "pnl_pct": 5.59, "reason": "止盈", "time": (now_utc - timedelta(days=3)).isoformat()},
+        {"symbol": "DOGE/USDT","side": "long",  "entry": 0.082,"exit": 0.079,  "qty": 5000, "leverage": 3, "pnl": -45.00, "pnl_pct": -1.10, "reason": "止损", "time": (now_utc - timedelta(days=4)).isoformat()},
+        {"symbol": "BTC/USDT", "side": "short", "entry": 62500, "exit": 61800,  "qty": 0.08, "leverage": 5, "pnl": 28.00,  "pnl_pct": 0.56, "reason": "信号平仓", "time": (now_utc - timedelta(days=5)).isoformat()},
+        {"symbol": "ETH/USDT", "side": "long",  "entry": 2980,  "exit": 3020,   "qty": 2.0,  "leverage": 3, "pnl": 80.00,  "pnl_pct": 1.34, "reason": "手动平仓", "time": (now_utc - timedelta(days=6)).isoformat()},
+        {"symbol": "LINK/USDT","side": "long",  "entry": 14.2,  "exit": 15.8,   "qty": 50.0, "leverage": 2, "pnl": 80.00,  "pnl_pct": 2.25, "reason": "止盈", "time": (now_utc - timedelta(days=7)).isoformat()},
+        {"symbol": "ADA/USDT", "side": "short", "entry": 0.48,  "exit": 0.52,   "qty": 2000, "leverage": 2, "pnl": -80.00, "pnl_pct": -1.67, "reason": "止损", "time": (now_utc - timedelta(days=8)).isoformat()},
+        {"symbol": "BTC/USDT", "side": "long",  "entry": 54800, "exit": 57200,  "qty": 0.12, "leverage": 5, "pnl": 144.00, "pnl_pct": 2.19, "reason": "信号平仓", "time": (now_utc - timedelta(days=10)).isoformat()},
+        {"symbol": "ETH/USDT", "side": "short", "entry": 3350,  "exit": 3280,   "qty": 2.5,  "leverage": 3, "pnl": 52.50,  "pnl_pct": 0.63, "reason": "止盈", "time": (now_utc - timedelta(days=12)).isoformat()},
+        {"symbol": "SOL/USDT", "side": "long",  "entry": 132.0, "exit": 138.5,  "qty": 8.0,  "leverage": 2, "pnl": 52.00,  "pnl_pct": 0.98, "reason": "信号平仓", "time": (now_utc - timedelta(days=15)).isoformat()},
+    ]
+
+    win_count = sum(1 for t in history if t["pnl"] > 0)
+    win_rate_val = round(win_count / len(history) * 100, 1) if history else 0
+
     state = DashboardState(
         status="running",
         mode="testnet",
@@ -364,23 +428,24 @@ def _generate_demo_data() -> DashboardState:
         signals=signals,
         logs=logs,
         total_pnl=init_pnl,
-        win_rate=66.7,
-        trade_count=12,
+        win_rate=win_rate_val,
+        trade_count=len(history),
         circuit_breaker_tripped=False,
         max_leverage=20,
         daily_loss=0.0,
         active_positions_count=3,
         max_positions=5,
-        pnl_history={"1d": [], "7d": [], "30d": [], "180d": [], "360d": []},
+        trade_history=history,
+        pnl_history=pnl_history,
         pnl_metrics={
-            "total_assets": 100000.0 + init_pnl,
-            "realtime": init_pnl,
-            "daily": init_pnl,
-            "daily_pct": round((init_pnl / 100000.0) * 100, 2),
-            "monthly": init_pnl,
-            "monthly_pct": round((init_pnl / 100000.0) * 100, 2),
-            "total": init_pnl,
-            "total_pct": round((init_pnl / 100000.0) * 100, 2),
+            "total_assets": 100000.0 + latest_pnl,
+            "realtime": latest_pnl,
+            "daily": latest_pnl,
+            "daily_pct": round((latest_pnl / 100000.0) * 100, 2),
+            "monthly": latest_pnl,
+            "monthly_pct": round((latest_pnl / 100000.0) * 100, 2),
+            "total": latest_pnl,
+            "total_pct": round((latest_pnl / 100000.0) * 100, 2),
         },
         config={
             "mode": "testnet",

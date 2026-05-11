@@ -110,6 +110,55 @@ body {
   min-height: 0;
 }
 
+/* ===== Position Tabs ===== */
+.pos-tabs {
+  display: flex;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.pos-tab {
+  padding: 2px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #8b949e;
+  background: #21262d;
+  transition: all 0.15s;
+}
+.pos-tab:hover {
+  color: #c9d1d9;
+  background: #30363d;
+}
+.pos-tab.active {
+  color: #58a6ff;
+  background: #1f3a5f;
+}
+
+/* ===== History Item ===== */
+.his-item {
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: #161b22;
+  border-radius: 4px;
+  font-size: 11px;
+  border-left: 3px solid #30363d;
+}
+.his-item.win  { border-left-color: #3fb950; }
+.his-item.loss { border-left-color: #f85149; }
+.his-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+.his-label { color: #8b949e; }
+.his-pnl.pos { color: #3fb950; font-weight: 600; }
+.his-pnl.neg { color: #f85149; font-weight: 600; }
+.his-reason {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #21262d;
+  color: #8b949e;
+}
+
 /* ===== PnL Panel (Binance style) ===== */
 .pnl-panel {
   background: #0d1117;
@@ -361,9 +410,17 @@ body {
   <div class="panels-row">
   <!-- Left: Positions -->
   <div class="panel">
-    <div class="panel-header">📦 持仓 <span id="posCount" style="color:#8b949e;font-weight:400;">(0)</span></div>
+    <div class="panel-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>📦 持仓</span>
+      <div class="pos-tabs">
+        <span class="pos-tab active" data-tab="current" id="tabCurrent">当前</span>
+        <span class="pos-tab" data-tab="history" id="tabHistory">历史</span>
+      </div>
+    </div>
     <div class="panel-body" id="positionsPanel">
-      <div class="empty-state">暂无持仓</div>
+      <div class="empty-state" id="posEmpty">暂无持仓</div>
+      <div id="posCurrentList"></div>
+      <div id="posHistoryList" style="display:none"></div>
     </div>
   </div>
 
@@ -490,16 +547,18 @@ function handleWSMessage(msg) {
 // ---- HTTP Fetch ----
 async function fetchAll() {
   try {
-    const [status, positions, perf, signals, config, pnlHistory] = await Promise.all([
+    const [status, positions, perf, signals, config, tradeHistory, pnlHistory] = await Promise.all([
       fetch('/api/status').then(r => r.json()),
       fetch('/api/positions').then(r => r.json()),
       fetch('/api/performance').then(r => r.json()),
       fetch('/api/signals').then(r => r.json()),
       fetch('/api/config').then(r => r.json()),
+      fetch('/api/history').then(r => r.json()),
       fetch('/api/pnl_history?range=' + _pnlCurrentRange).then(r => r.json()),
     ]);
     updateStatus(status);
     updatePositions(positions);
+    updateHistory(history);
     updatePerformance(perf);
     updateSignals(signals);
     updateConfig(config);
@@ -540,15 +599,17 @@ function updateStatus(data) {
 }
 
 function updatePositions(positions) {
-  const panel = $('positionsPanel');
+  const panel = document.getElementById('posCurrentList');
+  const empty = document.getElementById('posEmpty');
+  if (!panel) return;
   const count = Array.isArray(positions) ? positions.length : 0;
-  $('posCount').textContent = `(${count})`;
 
   if (!count) {
-    panel.innerHTML = '<div class="empty-state">暂无持仓</div>';
+    panel.innerHTML = '';
+    empty.style.display = '';
     return;
   }
-
+  empty.style.display = 'none';
   panel.innerHTML = '';
   positions.forEach(p => {
     const side = (p.side || '').toLowerCase();
@@ -567,7 +628,7 @@ function updatePositions(positions) {
       </div>
       <div class="pos-row">
         <span class="pos-label">数量</span>
-        <span class="pos-value">${p.size || 0}</span>
+        <span class="pos-value">${(p.size || p.quantity || 0).toFixed(4)}</span>
       </div>
       <div class="pos-row">
         <span class="pos-label">入场</span>
@@ -680,13 +741,86 @@ function toggleLog() {
   }
 }
 
+// ---- History Trade Tabs ----
+
+let _historyCache = [];
+
+function updateHistory(data) {
+  _historyCache = Array.isArray(data) ? data : [];
+  renderHistory();
+}
+
+function renderHistory() {
+  const panel = document.getElementById('posHistoryList');
+  if (!panel) return;
+
+  if (!_historyCache.length) {
+    panel.innerHTML = '<div class="empty-state">暂无历史成交</div>';
+    return;
+  }
+
+  panel.innerHTML = '';
+  _historyCache.forEach(t => {
+    const pnl = parseFloat(t.pnl) || 0;
+    const cls = pnl >= 0 ? 'win' : 'loss';
+    const pnlCls = pnl >= 0 ? 'pos' : 'neg';
+    const d = el('div', 'his-item ' + cls);
+    const ts = (t.time || '').slice(0, 10);
+    d.innerHTML = `
+      <div class="his-row">
+        <span><b>${t.symbol || '—'}</b> <span style="text-transform:uppercase;color:#8b949e;font-size:10px">${t.side || ''}</span></span>
+        <span class="his-pnl ${pnlCls}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</span>
+      </div>
+      <div class="his-row">
+        <span class="his-label">${t.entry || '—'} → ${t.exit || '—'} x${t.leverage || 1}</span>
+        <span><span class="his-reason">${t.reason || '—'}</span> <span style="color:#484f58;font-size:10px">${ts}</span></span>
+      </div>
+    `;
+    panel.appendChild(d);
+  });
+}
+
+// Position tab switching
+document.addEventListener('DOMContentLoaded', () => {
+  const tabCurrent = document.getElementById('tabCurrent');
+  const tabHistory = document.getElementById('tabHistory');
+  if (!tabCurrent || !tabHistory) return;
+
+  function switchTab(tab) {
+    const isHistory = tab === 'history';
+    tabCurrent.classList.toggle('active', !isHistory);
+    tabHistory.classList.toggle('active', isHistory);
+    document.getElementById('posCurrentList').style.display = isHistory ? 'none' : '';
+    document.getElementById('posHistoryList').style.display = isHistory ? '' : 'none';
+    document.getElementById('posEmpty').style.display = 'none';
+
+    if (isHistory && !document.getElementById('posHistoryList').children.length) {
+      renderHistory();
+    }
+  }
+
+  tabCurrent.addEventListener('click', () => switchTab('current'));
+  tabHistory.addEventListener('click', () => switchTab('history'));
+});
+
 // ---- PnL Chart (Binance-style with axes) ----
 
 let _pnlHistoryCache = [];
 let _pnlCurrentRange = '30d';
+let _pnlState = 'loading'; // 'loading' | 'empty' | 'error' | 'ready'
 
 function updatePnlChart(data) {
-  if (!data || !data.points || !data.points.length) return;
+  const canvas = document.getElementById('pnlChart');
+  if (!canvas) return;
+
+  if (!data || !data.points || !data.points.length) {
+    _pnlState = 'empty';
+    _pnlHistoryCache = [];
+    if (data && data.metrics) updatePnlMetrics(data.metrics);
+    drawPnlState('empty');
+    return;
+  }
+  _pnlState = 'ready';
   _pnlHistoryCache = data.points;
   if (data.metrics) updatePnlMetrics(data.metrics);
   drawPnlCurve(_pnlHistoryCache);
@@ -695,11 +829,9 @@ function updatePnlChart(data) {
 function updatePnlMetrics(metrics) {
   if (!metrics) return;
 
-  // Total assets
   const ta = parseFloat(metrics.total_assets) || 0;
   $('pnlTotalAssets').innerHTML = ta.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) + '<span class="currency">USDT</span>';
 
-  // Daily PnL
   const dp = parseFloat(metrics.daily) || 0;
   const dpEl = $('pnlDailyValue');
   dpEl.textContent = (dp >= 0 ? '+' : '') + dp.toFixed(2);
@@ -709,6 +841,37 @@ function updatePnlMetrics(metrics) {
   const dppEl = $('pnlDailyPct');
   dppEl.textContent = (dpp >= 0 ? '(+' : '(') + dpp.toFixed(2) + '%)';
   dppEl.className = 'pnl-daily-pct ' + (dpp >= 0 ? 'pos' : 'neg');
+}
+
+function drawPnlState(state) {
+  const canvas = document.getElementById('pnlChart');
+  if (!canvas) return;
+
+  const parent = canvas.parentElement;
+  const rect = parent.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(rect.width || 400, 100);
+  const h = Math.max(rect.height || 140, 60);
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  ctx.fillStyle = '#484f58';
+  ctx.font = '13px "Segoe UI", -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const messages = {
+    loading: '加载中...',
+    empty: '暂无收益数据',
+    error: '加载失败，点击重试',
+  };
+  ctx.fillText(messages[state] || '', w / 2, h / 2);
 }
 
 function drawPnlCurve(points) {
@@ -729,51 +892,56 @@ function drawPnlCurve(points) {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, w, h);
 
-  if (points.length < 2) return;
+  if (points.length < 2) {
+    drawPnlState('empty');
+    return;
+  }
 
   const values = points.map(p => (typeof p === 'number' ? p : (p.value || p.pnl || 0)));
   const min = Math.min(...values);
   const max = Math.max(...values);
   const vRange = max - min || 1;
+  const isUp = values[values.length - 1] >= values[0];
 
-  // Padding: left for Y-axis, right, top, bottom for X-axis
-  const padL = 60, padR = 12, padT = 8, padB = 22;
+  // Padding
+  const padL = 62, padR = 14, padT = 8, padB = 26;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
 
   // ---- Y-axis grid lines & labels ----
-  ctx.strokeStyle = '#21262d';
-  ctx.lineWidth = 1;
-  ctx.fillStyle = '#484f58';
-  ctx.font = '10px sans-serif';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-
   const yGridCount = 5;
   for (let i = 0; i <= yGridCount; i++) {
     const y = padT + (chartH / yGridCount) * i;
     const val = max - (vRange / yGridCount) * i;
 
-    // Grid line
+    ctx.strokeStyle = '#21262d';
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(padL, y);
     ctx.lineTo(w - padR, y);
     ctx.stroke();
 
-    // Label
-    ctx.fillText(formatAmount(val), padL - 6, y);
+    ctx.fillStyle = '#484f58';
+    ctx.font = '10px "Segoe UI", -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(formatYAxisValue(val), padL - 8, y);
   }
 
   // ---- X-axis labels ----
+  ctx.fillStyle = '#484f58';
+  ctx.font = '10px "Segoe UI", -apple-system, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
+
   const xLabelCount = 5;
   for (let i = 0; i <= xLabelCount; i++) {
     const x = padL + (chartW / xLabelCount) * i;
-    const idx = Math.floor((points.length - 1) / xLabelCount * i);
+    const idx = Math.min(Math.floor((points.length - 1) / xLabelCount * i), points.length - 1);
     const p = points[idx];
-    const label = p.time || p.t || formatTimeLabel(idx, _pnlCurrentRange, points.length);
-    ctx.fillText(label, x, h - padB + 4);
+    const rawTime = p && (p.time || p.t || '');
+    const label = rawTime ? formatXAxisTime(rawTime, _pnlCurrentRange) : formatTimeLabel(idx, _pnlCurrentRange, points.length);
+    ctx.fillText(label, x, h - padB + 6);
   }
 
   // ---- Zero line ----
@@ -781,7 +949,7 @@ function drawPnlCurve(points) {
     const zeroY = padT + chartH * (max / vRange);
     ctx.strokeStyle = '#30363d';
     ctx.lineWidth = 1;
-    ctx.setLineDash([3, 3]);
+    ctx.setLineDash([4, 4]);
     ctx.beginPath();
     ctx.moveTo(padL, zeroY);
     ctx.lineTo(w - padR, zeroY);
@@ -789,8 +957,7 @@ function drawPnlCurve(points) {
     ctx.setLineDash([]);
   }
 
-  // ---- Gradient fill (match direction color) ----
-  const lineColor = isUp ? '#3fb950' : '#f85149';
+  // ---- Gradient fill ----
   const gradient = ctx.createLinearGradient(0, padT, 0, h - padB);
   gradient.addColorStop(0, isUp ? 'rgba(63, 185, 80, 0.20)' : 'rgba(248, 81, 73, 0.20)');
   gradient.addColorStop(0.5, isUp ? 'rgba(63, 185, 80, 0.06)' : 'rgba(248, 81, 73, 0.06)');
@@ -810,10 +977,8 @@ function drawPnlCurve(points) {
   ctx.fill();
 
   // ---- Line ----
-  const isUp = values[values.length - 1] >= values[0];
-  const lineColor = isUp ? '#3fb950' : '#f85149';
   ctx.beginPath();
-  ctx.strokeStyle = lineColor;
+  ctx.strokeStyle = isUp ? '#3fb950' : '#f85149';
   ctx.lineWidth = 2;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
@@ -824,14 +989,13 @@ function drawPnlCurve(points) {
   });
   ctx.stroke();
 
-  // ---- Last value dot + label ----
+  // ---- Last value dot ----
   const lastV = values[values.length - 1];
   const lx = padL + (values.length - 1) * stepX;
   const ly = padT + chartH * (1 - (lastV - min) / vRange);
 
-  // Dot
   ctx.beginPath();
-  ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+  ctx.arc(lx, ly, 3.5, 0, Math.PI * 2);
   ctx.fillStyle = isUp ? '#3fb950' : '#f85149';
   ctx.fill();
   ctx.strokeStyle = '#0d1117';
@@ -839,37 +1003,62 @@ function drawPnlCurve(points) {
   ctx.stroke();
 }
 
-function formatAmount(val) {
-  if (Math.abs(val) >= 10000) {
-    return (val / 10000).toFixed(1) + '万';
-  }
-  if (Math.abs(val) >= 1000) {
-    return (val / 1000).toFixed(1) + 'k';
-  }
+function formatYAxisValue(val) {
+  const abs = Math.abs(val);
+  if (abs >= 1000000) return (val / 1000000).toFixed(1) + 'M';
+  if (abs >= 1000) return (val / 1000).toFixed(1) + 'k';
   return val.toFixed(0);
 }
 
+function formatXAxisTime(isoStr, range) {
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return isoStr;
+
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+
+  switch (range) {
+    case '1d':
+      return hh + ':' + mi;
+    case '7d':
+      return mm + '/' + dd + ' ' + hh + ':00';
+    case '30d':
+      return mm + '/' + dd;
+    case '180d':
+    case '360d':
+      return d.getFullYear() + '/' + mm;
+    default:
+      return mm + '/' + dd;
+  }
+}
+
 function formatTimeLabel(idx, range, total) {
-  // Generate approximate time labels based on range
-  if (range === '1d') {
-    const hour = Math.floor(idx / 4); // 96 points = 15min intervals = 24h
-    return String(hour).padStart(2,'0') + ':00';
+  switch (range) {
+    case '1d': {
+      const hour = Math.floor(idx / (total / 24));
+      return String(hour).padStart(2, '0') + ':00';
+    }
+    case '7d': {
+      const day = Math.floor(idx / (total / 7));
+      return 'D' + (day + 1);
+    }
+    case '30d': {
+      const day = Math.floor(idx / (total / 30));
+      return 'D' + (day + 1);
+    }
+    case '180d': {
+      const month = Math.floor(idx / (total / 6));
+      return 'M' + (month + 1);
+    }
+    case '360d': {
+      const month = Math.floor(idx / (total / 12));
+      return 'M' + (month + 1);
+    }
+    default:
+      return String(idx);
   }
-  if (range === '7d') {
-    const day = Math.floor(idx / 24); // 168 points = 1h intervals
-    return 'D' + (day + 1);
-  }
-  if (range === '30d') {
-    const day = Math.floor(idx / 12); // 360 points = 2h intervals
-    return 'D' + (day + 1);
-  }
-  if (range === '180d') {
-    const month = Math.floor(idx / 30);
-    return 'M' + (month + 1);
-  }
-  // 360d
-  const month = Math.floor(idx / 30);
-  return 'M' + (month + 1);
 }
 
 // ---- Time selector ----
@@ -880,18 +1069,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = e.target.closest('.pnl-time-btn');
     if (!btn) return;
 
-    // Update active state
     bar.querySelectorAll('.pnl-time-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
     _pnlCurrentRange = btn.dataset.range;
+    _pnlState = 'loading';
+    drawPnlState('loading');
 
-    // Fetch new data
     try {
-      const data = await fetch('/api/pnl_history?range=' + _pnlCurrentRange).then(r => r.json());
+      const resp = await fetch('/api/pnl_history?range=' + _pnlCurrentRange);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
       updatePnlChart(data);
     } catch (e) {
       console.warn('Fetch pnl_history failed:', e);
+      _pnlState = 'error';
+      drawPnlState('error');
     }
   });
 });
@@ -901,7 +1094,11 @@ let _resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(_resizeTimer);
   _resizeTimer = setTimeout(() => {
-    if (_pnlHistoryCache.length) drawPnlCurve(_pnlHistoryCache);
+    if (_pnlState === 'ready' && _pnlHistoryCache.length) {
+      drawPnlCurve(_pnlHistoryCache);
+    } else {
+      drawPnlState(_pnlState);
+    }
   }, 200);
 });
 

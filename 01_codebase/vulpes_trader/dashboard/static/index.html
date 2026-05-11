@@ -60,11 +60,18 @@ body {
 
 /* ===== Main Content ===== */
 .main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  background: #30363d;
+}
+.panels-row {
   display: grid;
   grid-template-columns: 320px 1fr 280px;
-  grid-template-rows: 1fr auto;
   gap: 1px;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: #30363d;
 }
@@ -88,9 +95,9 @@ body {
 
 /* ===== PnL Panel (span 3 cols, Binance style) ===== */
 .pnl-panel {
-  grid-column: 1 / -1;
   background: #0d1117;
   min-height: 240px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -298,6 +305,7 @@ body {
 <!-- ===== Main ===== -->
 <div class="main">
 
+  <div class="panels-row">
   <!-- Left: Positions -->
   <div class="panel">
     <div class="panel-header">📦 持仓 <span id="posCount" style="color:#8b949e;font-weight:400;">(0)</span></div>
@@ -325,6 +333,7 @@ body {
       <div class="risk-item"><span class="risk-label">仓位使用率</span><span class="risk-value" id="usagePct">0%</span></div>
       <div class="risk-bar"><div class="risk-bar-fill low" id="usageBar" style="width:0%"></div></div>
     </div>
+  </div>
   </div>
 
   <!-- PnL Curve (Binance-style) -->

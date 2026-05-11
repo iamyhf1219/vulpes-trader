@@ -46,13 +46,7 @@ class SquareMonitor:
         """生成模拟热度数据"""
         # 随机选取 8-15 个热门币种
         count = randint(8, 15)
-        selected = choice(self._HOT_TICKERS[:10], k=min(count, 10)) if count <= 10 \
-            else choice(self._HOT_TICKERS, k=count)
-        if len(selected) < count:
-            selected = selected + self._HOT_TICKERS[:count - len(selected)]
-
-
-
+        selected = __import__("random").sample(self._HOT_TICKERS, min(count, len(self._HOT_TICKERS)))
         return [
             {"title": f"${t} 行情分析", "content": f"${t} 近期走势强劲，关注突破"}
             for t in selected

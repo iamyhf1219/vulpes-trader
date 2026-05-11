@@ -579,6 +579,9 @@ function handleWSMessage(msg) {
         updatePnlMetrics(msg.data.metrics);
       }
       break;
+    case 'prices':
+      if (msg.data) updatePrices(msg.data);
+      break;
     default: break;
   }
 }
@@ -767,6 +770,37 @@ function updateRisk(data) {
 
 function updateConfig(data) {
   // 留作扩展
+}
+
+function updatePrices(data) {
+  const prices = data || {};
+  const panel = document.getElementById('positionsPanel');
+  if (!panel) return;
+  // Update topbar with real prices
+  let html = '<div style="margin-bottom:8px;padding:6px;background:#161b22;border-radius:4px;font-size:11px;">';
+  let count = 0;
+  for (const [sym, info] of Object.entries(prices)) {
+    if (!info || !info.last) continue;
+    const short = sym.split('/')[0];
+    const chg = info.change_24h || 0;
+    html += '<div style="display:flex;justify-content:space-between;padding:2px 0;">' +
+      '<span style="color:#58a6ff;font-weight:600;">' + short + '</span>' +
+      '<span style="font-weight:600;">' + info.last.toFixed(2) + '</span>' +
+      '<span style="color:' + (chg >= 0 ? '#3fb950' : '#f85149') + ';">' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%</span></div>';
+    count++;
+  }
+  html += '</div>';
+  if (count > 0) {
+    const existing = document.getElementById('priceStrip');
+    if (!existing) {
+      const strip = document.createElement('div');
+      strip.id = 'priceStrip';
+      strip.innerHTML = html;
+      panel.parentElement.insertBefore(strip, panel);
+    } else {
+      existing.innerHTML = html;
+    }
+  }
 }
 
 function appendLog(data) {

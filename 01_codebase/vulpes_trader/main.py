@@ -83,6 +83,24 @@ async def _start_dashboard(orchestrator: VulpesOrchestrator):
             for sig in history[-50:]
         ]
 
+    async def get_prices():
+        """从交易所拉取实时价格"""
+        symbols = getattr(orchestrator.ws_manager, "symbols", ["BTC/USDT:USDT", "ETH/USDT:USDT"])
+        prices = {}
+        try:
+            for sym in symbols[:5]:
+                ticker = await orchestrator.exchange_connector._exec("fetch_ticker", sym)
+                prices[sym] = {
+                    "last": ticker.get("last"),
+                    "bid": ticker.get("bid"),
+                    "ask": ticker.get("ask"),
+                    "change_24h": ticker.get("percentage"),
+                    "volume": ticker.get("baseVolume"),
+                }
+        except Exception as e:
+            logger.debug("获取价格失败: %s", e)
+        return prices
+
     def get_config():
         return {
             "mode": config.mode,
@@ -99,6 +117,15 @@ async def _start_dashboard(orchestrator: VulpesOrchestrator):
         signals=get_signals,
         config=get_config,
     )
+
+    # 启动价格自动刷新（每6秒）
+    async def _price_loop():
+        while True:
+            await asyncio.sleep(6)
+            prices = await get_prices()
+            await dash.broadcast("prices", prices)
+
+    asyncio.create_task(_price_loop())
 
     await dash.start()
 

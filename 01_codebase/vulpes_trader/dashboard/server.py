@@ -297,5 +297,90 @@ def start_dashboard(port: int = _DEFAULT_PORT) -> DashboardServer:
     return dash
 
 
+def _generate_demo_data() -> DashboardState:
+    """生成模拟交易数据用于 UI 展示"""
+    from random import uniform, choice, random
+    now = datetime.now(timezone.utc).isoformat()
+
+    positions = [
+        {"symbol": "BTC/USDT", "side": "long", "quantity": 0.15, "entry_price": 62450.0,
+         "current_price": 63820.0, "pnl": 205.5, "pnl_pct": 2.19, "leverage": 5},
+        {"symbol": "ETH/USDT", "side": "long", "quantity": 2.5, "entry_price": 3120.0,
+         "current_price": 3245.0, "pnl": 312.5, "pnl_pct": 4.01, "leverage": 3},
+        {"symbol": "SOL/USDT", "side": "short", "quantity": 8.0, "entry_price": 142.8,
+         "current_price": 138.5, "pnl": 34.4, "pnl_pct": 3.01, "leverage": 2},
+    ]
+
+    signals = [
+        {"symbol": "BTC/USDT", "direction": "long", "confidence": 0.78, "source": "fusion",
+         "timestamp": now, "detail": "趋势跟随(0.72) + 热度(0.65) + 事件(0.50)"},
+        {"symbol": "ETH/USDT", "direction": "long", "confidence": 0.65, "source": "trend",
+         "timestamp": now, "detail": "EMA金叉, 9>26"},
+        {"symbol": "SOL/USDT", "direction": "short", "confidence": 0.71, "source": "heat",
+         "timestamp": now, "detail": "热度偏高, OI 下降"},
+        {"symbol": "DOGE/USDT", "direction": "neutral", "confidence": 0.30, "source": "event",
+         "timestamp": now, "detail": "等待事件确认"},
+    ]
+
+    logs = [
+        {"timestamp": now, "level": "INFO", "message": "Vulpes Trader 启动 模式: testnet", "source": "system"},
+        {"timestamp": now, "level": "INFO", "message": "WsManager 连接成功: 3 个交易对", "source": "ws"},
+        {"timestamp": now, "level": "INFO", "message": "信号融合: BTC LONG @ 0.78", "source": "fusion"},
+        {"timestamp": now, "level": "WARNING", "message": "SOL 热度偏高, OI 下降 5.2%", "source": "heat"},
+        {"timestamp": now, "level": "INFO", "message": "开仓 BTC LONG 0.15 @ 62450 x5", "source": "execution"},
+        {"timestamp": now, "level": "INFO", "message": "止损设置: BTC @ 60888 (-2.5%)", "source": "risk"},
+    ]
+
+    state = DashboardState(
+        status="running",
+        mode="testnet",
+        uptime_seconds=86400.0,
+        positions=positions,
+        signals=signals,
+        logs=logs,
+        total_pnl=552.4,
+        win_rate=66.7,
+        trade_count=12,
+        circuit_breaker_tripped=False,
+        max_leverage=20,
+        daily_loss=0.0,
+        active_positions_count=3,
+        max_positions=5,
+        config={
+            "mode": "testnet",
+            "max_leverage": 20,
+            "symbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+            "primary_timeframe": "5m",
+            "strategy": "trend_following_v1",
+        },
+    )
+    return state
+
+
+async def _demo_loop(dash: DashboardServer):
+    """Demo 模式下定时更新模拟价格"""
+    from random import uniform
+    base_prices = {"BTC/USDT": 63820.0, "ETH/USDT": 3245.0, "SOL/USDT": 138.5}
+    while True:
+        await asyncio.sleep(3)
+        for pos in dash._state.positions:
+            sym = pos["symbol"]
+            bp = base_prices.get(sym, 100.0)
+            change = bp * uniform(-0.002, 0.002)
+            bp += change
+            base_prices[sym] = bp
+            pos["current_price"] = round(bp, 2)
+            entry = pos["entry_price"]
+            pos["pnl"] = round((bp - entry) * pos["quantity"] * (1 if pos["side"] == "long" else -1), 2)
+            pos["pnl_pct"] = round(((bp - entry) / entry) * 100, 2)
+        dash._state.total_pnl = sum(p["pnl"] for p in dash._state.positions)
+        # 广播到 WebSocket
+        await dash.broadcast("positions", dash._state.positions)
+        await dash.broadcast("status", {
+            "total_pnl": dash._state.total_pnl,
+            "active_positions": len(dash._state.positions),
+        })
+
+
 # 模块导入时自动初始化（支持 uvicorn vulpes_trader.dashboard.server:app 启动）
-_ensure_instance()
+dash = _ensure_instance()

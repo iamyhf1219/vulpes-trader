@@ -320,6 +320,34 @@ body {
 <!-- ===== Main ===== -->
 <div class="main">
 
+  <!-- PnL Curve (Binance-style) - 置顶 -->
+  <div class="pnl-panel">
+    <div class="panel-header" style="border-bottom:none;padding-bottom:0;">📈 收益</div>
+    <div class="pnl-header-stats">
+      <div>
+        <div class="pnl-total-label">总资产 (USDT)</div>
+        <div class="pnl-total-amount" id="pnlTotalAssets">108,632.40<span class="currency">USDT</span></div>
+      </div>
+      <div class="pnl-daily-section">
+        <div class="pnl-daily-label">今日盈亏</div>
+        <div>
+          <span class="pnl-daily-value pos" id="pnlDailyValue">+128.50</span>
+          <span class="pnl-daily-pct pos" id="pnlDailyPct">(+1.25%)</span>
+        </div>
+      </div>
+    </div>
+    <div class="pnl-time-bar" id="pnlTimeBar">
+      <button class="pnl-time-btn" data-range="1d">1天</button>
+      <button class="pnl-time-btn" data-range="7d">7天</button>
+      <button class="pnl-time-btn active" data-range="30d">30天</button>
+      <button class="pnl-time-btn" data-range="180d">180天</button>
+      <button class="pnl-time-btn" data-range="360d">360天</button>
+    </div>
+    <div class="pnl-chart-body">
+      <canvas id="pnlChart"></canvas>
+    </div>
+  </div>
+
   <div class="panels-row">
   <!-- Left: Positions -->
   <div class="panel">
@@ -349,34 +377,6 @@ body {
       <div class="risk-bar"><div class="risk-bar-fill low" id="usageBar" style="width:0%"></div></div>
     </div>
   </div>
-  </div>
-
-  <!-- PnL Curve (Binance-style) -->
-  <div class="pnl-panel">
-    <div class="panel-header" style="border-bottom:none;padding-bottom:0;">📈 收益</div>
-    <div class="pnl-header-stats">
-      <div>
-        <div class="pnl-total-label">总资产 (USDT)</div>
-        <div class="pnl-total-amount" id="pnlTotalAssets">108,632.40<span class="currency">USDT</span></div>
-      </div>
-      <div class="pnl-daily-section">
-        <div class="pnl-daily-label">今日盈亏</div>
-        <div>
-          <span class="pnl-daily-value pos" id="pnlDailyValue">+128.50</span>
-          <span class="pnl-daily-pct pos" id="pnlDailyPct">(+1.25%)</span>
-        </div>
-      </div>
-    </div>
-    <div class="pnl-time-bar" id="pnlTimeBar">
-      <button class="pnl-time-btn" data-range="1d">1天</button>
-      <button class="pnl-time-btn" data-range="7d">7天</button>
-      <button class="pnl-time-btn active" data-range="30d">30天</button>
-      <button class="pnl-time-btn" data-range="180d">180天</button>
-      <button class="pnl-time-btn" data-range="360d">360天</button>
-    </div>
-    <div class="pnl-chart-body">
-      <canvas id="pnlChart"></canvas>
-    </div>
   </div>
 
 </div>

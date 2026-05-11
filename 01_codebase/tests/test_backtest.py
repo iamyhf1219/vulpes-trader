@@ -381,3 +381,44 @@ class TestBacktestEngineDirectional:
         )
         result = engine.run(df)
         assert result.total_trades >= 0  # 不应崩溃
+
+
+# ── 多币种并行回测 ────────────────────────────────────────────────────────────
+
+
+class TestBacktestMultiAsset:
+    """run_multi 多币种并行"""
+
+    def test_two_symbols(self):
+        df1 = _make_ohlcv(n=200, start_price=50000)
+        df2 = _make_ohlcv(n=200, start_price=3000)
+        data = {"BTC/USDT": df1, "ETH/USDT": df2}
+        engine = BacktestEngine(signal_fn=_sma_cross_signal, capital=20000, leverage=1)
+        result = engine.run_multi(data)
+        assert "summary" in result
+        assert "details" in result
+        assert "BTC/USDT" in result["details"]
+        assert "ETH/USDT" in result["details"]
+        assert result["summary"].total_trades > 0
+
+    def test_single_symbol(self):
+        df = _make_ohlcv(n=100)
+        data = {"BTC/USDT": df}
+        engine = BacktestEngine(signal_fn=_sma_cross_signal, capital=10000, leverage=1)
+        result = engine.run_multi(data)
+        assert result["summary"].total_trades > 0
+        assert len(result["summary"].equity_curve) > 0
+
+    def test_empty_data(self):
+        engine = BacktestEngine(signal_fn=_sma_cross_signal, capital=10000)
+        result = engine.run_multi({})
+        assert result == {}
+
+    def test_different_lengths(self):
+        df1 = _make_ohlcv(n=300, start_price=50000)
+        df2 = _make_ohlcv(n=200, start_price=3000)
+        data = {"BTC/USDT": df1, "ETH/USDT": df2}
+        engine = BacktestEngine(signal_fn=_sma_cross_signal, capital=20000, leverage=1)
+        result = engine.run_multi(data)
+        assert "summary" in result
+        assert len(result["summary"].equity_curve) >= 300

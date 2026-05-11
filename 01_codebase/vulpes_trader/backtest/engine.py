@@ -112,9 +112,58 @@ class BacktestEngine:
         self.max_positions = max_positions
         self.leverage = leverage
 
+    def run_multi(self, data: Dict[str, pd.DataFrame]) -> Dict[str, BacktestResult]:
+        """
+        多币种并行回测
+
+        Args:
+            data: {symbol: DataFrame} 每个币种的 OHLCV 数据
+
+        Returns:
+            {symbol: BacktestResult} 每个币种的回测结果
+        """
+        # 对齐时间轴
+        aligned = {}
+        for sym, df in data.items():
+            d = df.copy().sort_values("timestamp")
+            d["_ts"] = pd.to_datetime(d["timestamp"])
+            aligned[sym] = d.set_index("_ts")
+
+        if not aligned:
+            return {}
+
+        # 共用时间轴
+        all_times = pd.DatetimeIndex([])
+        for d in aligned.values():
+            all_times = all_times.union(d.index)
+        all_times = all_times.sort_values()
+
+        # 每个币种独立运行回测
+        results: Dict[str, BacktestResult] = {}
+        for sym, df in aligned.items():
+            results[sym] = self.run(df.drop(columns=["timestamp"], errors="ignore").reset_index().rename(columns={"_ts": "timestamp"}))
+
+        # 组合权益曲线：按时间相加
+        portfolio_equity = pd.Series(dtype=float)
+        for sym, r in results.items():
+            eq = pd.Series(r.equity_curve, index=r.timestamps)
+            portfolio_equity = portfolio_equity.add(eq, fill_value=self.capital)
+
+        # 汇总结果
+        all_trades = []
+        for sym, r in results.items():
+            all_trades.extend(r.trades)
+
+        summary = BacktestResult(
+            trades=all_trades,
+            equity_curve=portfolio_equity.values.tolist(),
+            timestamps=portfolio_equity.index.tolist(),
+        )
+        return {"summary": summary, "details": results}
+
     def run(self, ohlcv: pd.DataFrame) -> BacktestResult:
         """
-        运行回测
+        单币种回测
 
         Args:
             ohlcv: DataFrame 必须包含 ['timestamp','open','high','low','close','volume']

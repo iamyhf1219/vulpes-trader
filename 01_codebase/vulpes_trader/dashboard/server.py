@@ -47,6 +47,7 @@ class DashboardState:
 
     config: Dict[str, Any] = field(default_factory=dict)
     trade_history: List[Dict[str, Any]] = field(default_factory=list)  # 历史成交
+    knowledge: List[Dict[str, Any]] = field(default_factory=list)  # 知识库
     pnl_history: List[Dict[str, Any]] = field(default_factory=list)  # PnL 时间序列
     pnl_metrics: Dict[str, float] = field(default_factory=lambda: {
         "realtime": 0.0, "daily": 0.0, "monthly": 0.0, "total": 0.0,
@@ -217,6 +218,14 @@ class DashboardServer:
             return self._state.trade_history
         return []
 
+    def _collect_knowledge(self) -> Dict[str, Any]:
+        rules = self._state.knowledge
+        return {
+            "rules": rules if isinstance(rules, list) else [],
+            "total": len(rules) if isinstance(rules, list) else 0,
+            "active": sum(1 for r in (rules or []) if r.get("active", True)),
+        }
+
     def _collect_pnl_history(self, range_key: str = "30d") -> Dict[str, Any]:
         raw = self._state.pnl_history
         if isinstance(raw, dict):
@@ -272,6 +281,10 @@ class DashboardServer:
         @app.get("/api/history")
         async def api_history():
             return self._collect_history()
+
+        @app.get("/api/knowledge")
+        async def api_knowledge():
+            return self._collect_knowledge()
 
         @app.get("/api/pnl_history")
         async def api_pnl_history(range: str = "30d"):
@@ -436,6 +449,14 @@ def _generate_demo_data() -> DashboardState:
         active_positions_count=3,
         max_positions=5,
         trade_history=history,
+        knowledge=[
+            {"id":1,"text":"BTC减半前3个月通常有30-40%的上涨","source":"user_input","category":"market","tags":["BTC","减半","周期性"],"active":True},
+            {"id":2,"text":"庄家拉盘前会在关键支撑位挂大量买单吸筹","source":"user_input","category":"whale","tags":["庄家","支撑位","吸筹"],"active":True},
+            {"id":3,"text":"EMA金叉+成交量放大时做多胜率高","source":"trade_review","category":"signal","tags":["EMA","金叉","成交量"],"active":True},
+            {"id":4,"text":"连续3笔亏损后应暂停交易","source":"trade_review","category":"risk","tags":["风控","亏损"],"active":True},
+            {"id":5,"text":"SOL在$120附近连续3天放量不跌可能是主力吸筹","source":"user_input","category":"whale","tags":["SOL","主力","吸筹"],"active":True},
+            {"id":6,"text":"BTC ETF净流入持续3天以上往往是中期上涨信号","source":"user_input","category":"market","tags":["BTC","ETF","资金流向"],"active":True},
+        ],
         pnl_history=pnl_history,
         pnl_metrics={
             "total_assets": 100000.0 + latest_pnl,

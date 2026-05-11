@@ -159,6 +159,36 @@ body {
   color: #8b949e;
 }
 
+/* ===== Knowledge Base ===== */
+.kb-item {
+  padding: 7px 8px;
+  margin-bottom: 5px;
+  background: #161b22;
+  border-radius: 5px;
+  font-size: 11px;
+  border-left: 3px solid #58a6ff;
+}
+.kb-item.whale   { border-left-color: #f0883e; }
+.kb-item.market  { border-left-color: #58a6ff; }
+.kb-item.signal  { border-left-color: #3fb950; }
+.kb-item.risk    { border-left-color: #f85149; }
+.kb-source {
+  font-size: 10px;
+  color: #8b949e;
+  background: #21262d;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.kb-tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  margin: 1px 2px;
+  border-radius: 8px;
+  background: #1f3a5f;
+  color: #58a6ff;
+}
+
 /* ===== PnL Panel (Binance style) ===== */
 .pnl-panel {
   background: #0d1117;
@@ -424,11 +454,20 @@ body {
     </div>
   </div>
 
-  <!-- Center: Signals -->
+  <!-- Center: Signals + Knowledge -->
   <div class="panel">
-    <div class="panel-header">📶 信号</div>
+    <div class="panel-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>📶 信号</span>
+      <div class="pos-tabs" id="sigTabs">
+        <span class="pos-tab active" data-tab="signals">信号</span>
+        <span class="pos-tab" data-tab="knowledge">知识库</span>
+      </div>
+    </div>
     <div class="panel-body" id="signalsPanel">
-      <div class="empty-state">暂无信号</div>
+      <div id="sigList"></div>
+      <div id="kbList" style="display:none">
+        <div class="empty-state">暂无知识</div>
+      </div>
     </div>
   </div>
 
@@ -547,18 +586,20 @@ function handleWSMessage(msg) {
 // ---- HTTP Fetch ----
 async function fetchAll() {
   try {
-    const [status, positions, perf, signals, config, tradeHistory, pnlHistory] = await Promise.all([
+    const [status, positions, perf, signals, config, tradeHistory, knowledge, pnlHistory] = await Promise.all([
       fetch('/api/status').then(r => r.json()),
       fetch('/api/positions').then(r => r.json()),
       fetch('/api/performance').then(r => r.json()),
       fetch('/api/signals').then(r => r.json()),
       fetch('/api/config').then(r => r.json()),
       fetch('/api/history').then(r => r.json()),
+      fetch('/api/knowledge').then(r => r.json()),
       fetch('/api/pnl_history?range=' + _pnlCurrentRange).then(r => r.json()),
     ]);
     updateStatus(status);
     updatePositions(positions);
-    updateHistory(history);
+    updateHistory(tradeHistory);
+    updateKnowledge(knowledge);
     updatePerformance(perf);
     updateSignals(signals);
     updateConfig(config);
@@ -648,7 +689,8 @@ function updatePositions(positions) {
 }
 
 function updateSignals(signals) {
-  const panel = $('signalsPanel');
+  const panel = document.getElementById('sigList');
+  if (!panel) return;
   const list = Array.isArray(signals) ? signals : [];
 
   if (!list.length) {
@@ -801,6 +843,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
   tabCurrent.addEventListener('click', () => switchTab('current'));
   tabHistory.addEventListener('click', () => switchTab('history'));
+});
+
+// ---- Knowledge Base ----
+
+function updateKnowledge(data) {
+  const panel = document.getElementById('kbList');
+  if (!panel) return;
+  const rules = (data && data.rules) || [];
+  if (!rules.length) {
+    panel.innerHTML = '<div class="empty-state">暂无知识，等待主人喂食 🧠</div>';
+    return;
+  }
+  panel.innerHTML = '';
+  rules.forEach(r => {
+    const cat = r.category || 'market';
+    const div = el('div', 'kb-item ' + cat);
+    const srcLabel = r.source === 'user_input' ? '🧠 用户' : '📊 复盘';
+    const tags = (r.tags || []).map(t => '<span class="kb-tag">#' + t + '</span>').join('');
+    div.innerHTML = '<div style="margin-bottom:3px;">' + (r.text || '') + '</div>' +
+      '<div><span class="kb-source">' + srcLabel + ' [' + cat + ']</span> ' + tags + '</div>';
+    panel.appendChild(div);
+  });
+}
+
+// Signal/Knowledge tab switching
+document.addEventListener('DOMContentLoaded', () => {
+  const bar = document.getElementById('sigTabs');
+  if (!bar) return;
+  bar.addEventListener('click', (e) => {
+    const tab = e.target.closest('.pos-tab');
+    if (!tab) return;
+    const isKb = tab.dataset.tab === 'knowledge';
+    bar.querySelectorAll('.pos-tab').forEach(b => b.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('sigList').style.display = isKb ? 'none' : '';
+    document.getElementById('kbList').style.display = isKb ? '' : 'none';
+  });
 });
 
 // ---- PnL Chart (Binance-style with axes) ----

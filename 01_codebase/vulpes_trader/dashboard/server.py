@@ -368,13 +368,20 @@ def _generate_demo_data() -> DashboardState:
     from datetime import timedelta
     now = datetime.now(timezone.utc).isoformat()
 
+    # 每条持仓附带开仓逻辑
     positions = [
         {"symbol": "BTC/USDT", "side": "long", "quantity": 0.15, "entry_price": 62450.0,
-         "current_price": 63820.0, "pnl": 205.5, "pnl_pct": 2.19, "leverage": 5},
+         "current_price": 63820.0, "pnl": 205.5, "pnl_pct": 2.19, "leverage": 5,
+         "entry_reason": {"source":"fusion","confidence":0.78,"detail":"趋势+热度+事件三重共振",
+           "breakdown":["趋势跟随: EMA金叉9>26, 置信度0.72","热度分析: 排名第3, OI上升5.2%","事件: 无明显影响"]}},
         {"symbol": "ETH/USDT", "side": "long", "quantity": 2.5, "entry_price": 3120.0,
-         "current_price": 3245.0, "pnl": 312.5, "pnl_pct": 4.01, "leverage": 3},
+         "current_price": 3245.0, "pnl": 312.5, "pnl_pct": 4.01, "leverage": 3,
+         "entry_reason": {"source":"trend","confidence":0.65,"detail":"EMA金叉+放量突破",
+           "breakdown":["趋势跟随: EMA12上穿EMA26, 置信度0.65","成交量: 24h放量35%"]}},
         {"symbol": "SOL/USDT", "side": "short", "quantity": 8.0, "entry_price": 142.8,
-         "current_price": 138.5, "pnl": 34.4, "pnl_pct": 3.01, "leverage": 2},
+         "current_price": 138.5, "pnl": 34.4, "pnl_pct": 3.01, "leverage": 2,
+         "entry_reason": {"source":"heat","confidence":0.71,"detail":"热度偏高, OI反转下行",
+           "breakdown":["热度: Square排名第1, 超买预警","OI: 未平仓量下降8.3%","资金费率: 0.01% 中性"]}},
     ]
 
     signals = [
@@ -417,17 +424,17 @@ def _generate_demo_data() -> DashboardState:
     now_utc = datetime.now(timezone.utc)
     d = now_utc.day
     history = [
-        {"symbol": "BTC/USDT", "side": "long",  "entry": 58200, "exit": 61050,  "qty": 0.1,  "leverage": 5, "pnl": 142.50, "pnl_pct": 2.45, "reason": "止盈", "time": (now_utc - timedelta(days=1)).isoformat()},
-        {"symbol": "ETH/USDT", "side": "long",  "entry": 3050,  "exit": 3180,   "qty": 3.0,  "leverage": 3, "pnl": 390.00, "pnl_pct": 4.26, "reason": "信号平仓", "time": (now_utc - timedelta(days=2)).isoformat()},
-        {"symbol": "SOL/USDT", "side": "short", "entry": 148.5,"exit": 140.2,  "qty": 10.0, "leverage": 2, "pnl": 83.00,  "pnl_pct": 5.59, "reason": "止盈", "time": (now_utc - timedelta(days=3)).isoformat()},
-        {"symbol": "DOGE/USDT","side": "long",  "entry": 0.082,"exit": 0.079,  "qty": 5000, "leverage": 3, "pnl": -45.00, "pnl_pct": -1.10, "reason": "止损", "time": (now_utc - timedelta(days=4)).isoformat()},
-        {"symbol": "BTC/USDT", "side": "short", "entry": 62500, "exit": 61800,  "qty": 0.08, "leverage": 5, "pnl": 28.00,  "pnl_pct": 0.56, "reason": "信号平仓", "time": (now_utc - timedelta(days=5)).isoformat()},
-        {"symbol": "ETH/USDT", "side": "long",  "entry": 2980,  "exit": 3020,   "qty": 2.0,  "leverage": 3, "pnl": 80.00,  "pnl_pct": 1.34, "reason": "手动平仓", "time": (now_utc - timedelta(days=6)).isoformat()},
-        {"symbol": "LINK/USDT","side": "long",  "entry": 14.2,  "exit": 15.8,   "qty": 50.0, "leverage": 2, "pnl": 80.00,  "pnl_pct": 2.25, "reason": "止盈", "time": (now_utc - timedelta(days=7)).isoformat()},
-        {"symbol": "ADA/USDT", "side": "short", "entry": 0.48,  "exit": 0.52,   "qty": 2000, "leverage": 2, "pnl": -80.00, "pnl_pct": -1.67, "reason": "止损", "time": (now_utc - timedelta(days=8)).isoformat()},
-        {"symbol": "BTC/USDT", "side": "long",  "entry": 54800, "exit": 57200,  "qty": 0.12, "leverage": 5, "pnl": 144.00, "pnl_pct": 2.19, "reason": "信号平仓", "time": (now_utc - timedelta(days=10)).isoformat()},
-        {"symbol": "ETH/USDT", "side": "short", "entry": 3350,  "exit": 3280,   "qty": 2.5,  "leverage": 3, "pnl": 52.50,  "pnl_pct": 0.63, "reason": "止盈", "time": (now_utc - timedelta(days=12)).isoformat()},
-        {"symbol": "SOL/USDT", "side": "long",  "entry": 132.0, "exit": 138.5,  "qty": 8.0,  "leverage": 2, "pnl": 52.00,  "pnl_pct": 0.98, "reason": "信号平仓", "time": (now_utc - timedelta(days=15)).isoformat()},
+        {"symbol": "BTC/USDT", "side": "long",  "entry": 58200, "exit": 61050,  "qty": 0.1,  "leverage": 5, "pnl": 142.50, "pnl_pct": 2.45, "reason": "止盈", "entry_reason": "趋势+热度共振, 置信度0.78", "time": (now_utc - timedelta(days=1)).isoformat()},
+        {"symbol": "ETH/USDT", "side": "long",  "entry": 3050,  "exit": 3180,   "qty": 3.0,  "leverage": 3, "pnl": 390.00, "pnl_pct": 4.26, "reason": "信号平仓", "entry_reason": "EMA金叉+放量, 置信度0.65", "time": (now_utc - timedelta(days=2)).isoformat()},
+        {"symbol": "SOL/USDT", "side": "short", "entry": 148.5,"exit": 140.2,  "qty": 10.0, "leverage": 2, "pnl": 83.00,  "pnl_pct": 5.59, "reason": "止盈", "entry_reason": "热度+OI反转, 置信度0.71", "time": (now_utc - timedelta(days=3)).isoformat()},
+        {"symbol": "DOGE/USDT","side": "long",  "entry": 0.082,"exit": 0.079,  "qty": 5000, "leverage": 3, "pnl": -45.00, "pnl_pct": -1.10, "reason": "止损", "entry_reason": "事件驱动, 置信度0.45", "time": (now_utc - timedelta(days=4)).isoformat()},
+        {"symbol": "BTC/USDT", "side": "short", "entry": 62500, "exit": 61800,  "qty": 0.08, "leverage": 5, "pnl": 28.00, "pnl_pct": 0.56, "reason": "信号平仓", "entry_reason": "趋势反转信号, 置信度0.62", "time": (now_utc - timedelta(days=5)).isoformat()},
+        {"symbol": "ETH/USDT", "side": "long",  "entry": 2980,  "exit": 3020,   "qty": 2.0,  "leverage": 3, "pnl": 80.00, "pnl_pct": 1.34, "reason": "手动平仓", "entry_reason": "支撑位反弹, 置信度0.55", "time": (now_utc - timedelta(days=6)).isoformat()},
+        {"symbol": "LINK/USDT","side": "long",  "entry": 14.2,  "exit": 15.8,   "qty": 50.0, "leverage": 2, "pnl": 80.00, "pnl_pct": 2.25, "reason": "止盈", "entry_reason": "热度飙升+消息面利好", "time": (now_utc - timedelta(days=7)).isoformat()},
+        {"symbol": "ADA/USDT", "side": "short", "entry": 0.48,  "exit": 0.52,   "qty": 2000, "leverage": 2, "pnl": -80.00, "pnl_pct": -1.67, "reason": "止损", "entry_reason": "趋势破位, 置信度0.60", "time": (now_utc - timedelta(days=8)).isoformat()},
+        {"symbol": "BTC/USDT", "side": "long",  "entry": 54800, "exit": 57200,  "qty": 0.12, "leverage": 5, "pnl": 144.00, "pnl_pct": 2.19, "reason": "信号平仓", "entry_reason": "EMA多头排列, 趋势跟随", "time": (now_utc - timedelta(days=10)).isoformat()},
+        {"symbol": "ETH/USDT", "side": "short", "entry": 3350,  "exit": 3280,   "qty": 2.5,  "leverage": 3, "pnl": 52.50, "pnl_pct": 0.63, "reason": "止盈", "entry_reason": "MACD顶背离, 置信度0.68", "time": (now_utc - timedelta(days=12)).isoformat()},
+        {"symbol": "SOL/USDT", "side": "long",  "entry": 132.0, "exit": 138.5,  "qty": 8.0,  "leverage": 2, "pnl": 52.00, "pnl_pct": 0.98, "reason": "信号平仓", "entry_reason": "支撑位反弹+热度回暖", "time": (now_utc - timedelta(days=15)).isoformat()},
     ]
 
     win_count = sum(1 for t in history if t["pnl"] > 0)

@@ -652,15 +652,18 @@ function updatePositions(positions) {
   }
   empty.style.display = 'none';
   panel.innerHTML = '';
-  positions.forEach(p => {
+  positions.forEach((p, pi) => {
     const side = (p.side || '').toLowerCase();
     const pnl = parseFloat(p.pnl) || 0;
     const pnlCls = pnl >= 0 ? 'positive' : 'negative';
+    const er = p.entry_reason || {};
 
     const div = el('div', `pos-item ${side}`);
+    div.style.cursor = 'pointer';
+    const bd = (er.breakdown || []).map(function(b){ return '<div style="font-size:10px;color:#8b949e;padding:1px 0;">\u2022 ' + b + '</div>'; }).join('');
     div.innerHTML = `
       <div class="pos-row">
-        <span class="pos-value">${p.symbol || '—'}</span>
+        <span class="pos-value">${p.symbol || '\u2014'}</span>
         <span class="pos-pnl ${pnlCls}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</span>
       </div>
       <div class="pos-row">
@@ -673,17 +676,27 @@ function updatePositions(positions) {
       </div>
       <div class="pos-row">
         <span class="pos-label">入场</span>
-        <span class="pos-value">${p.entry_price ? p.entry_price.toFixed(2) : '—'}</span>
+        <span class="pos-value">${p.entry_price ? p.entry_price.toFixed(2) : '\u2014'}</span>
       </div>
       <div class="pos-row">
         <span class="pos-label">当前价</span>
-        <span class="pos-value">${p.current_price ? p.current_price.toFixed(2) : '—'}</span>
+        <span class="pos-value">${p.current_price ? p.current_price.toFixed(2) : '\u2014'}</span>
       </div>
       <div class="pos-row">
         <span class="pos-label">杠杆</span>
         <span class="pos-value">${p.leverage || 1}x</span>
       </div>
+      <div class="pos-row" style="border-top:1px solid #21262d;padding-top:4px;margin-top:4px;">
+        <span style="font-size:10px;color:#8b949e;">\uD83D\uDCCB 开仓依据</span>
+        <span style="font-size:10px;color:#58a6ff">${er.source || '\u2014'} ${er.confidence ? '('+Math.round(er.confidence*100)+'%)' : ''}</span>
+      </div>
+      <div style="font-size:10px;color:#8b949e;padding:2px 0;">${er.detail || ''}</div>
+      <div id="posDetail${pi}" style="display:none;padding:4px;margin-top:4px;background:#0d1117;border-radius:4px;">${bd}</div>
     `;
+    div.addEventListener('click', function() {
+      var d = document.getElementById('posDetail' + pi);
+      if (d) d.style.display = d.style.display === 'none' ? 'block' : 'none';
+    });
     panel.appendChild(div);
   });
 }
@@ -807,17 +820,25 @@ function renderHistory() {
     const cls = pnl >= 0 ? 'win' : 'loss';
     const pnlCls = pnl >= 0 ? 'pos' : 'neg';
     const d = el('div', 'his-item ' + cls);
+    d.style.cursor = 'pointer';
     const ts = (t.time || '').slice(0, 10);
+    const erText = t.entry_reason || '';
+    const uniq = 'hd' + Math.random().toString(36).slice(2,6);
     d.innerHTML = `
       <div class="his-row">
-        <span><b>${t.symbol || '—'}</b> <span style="text-transform:uppercase;color:#8b949e;font-size:10px">${t.side || ''}</span></span>
+        <span><b>${t.symbol || '\u2014'}</b> <span style="text-transform:uppercase;color:#8b949e;font-size:10px">${t.side || ''}</span></span>
         <span class="his-pnl ${pnlCls}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</span>
       </div>
       <div class="his-row">
-        <span class="his-label">${t.entry || '—'} → ${t.exit || '—'} x${t.leverage || 1}</span>
-        <span><span class="his-reason">${t.reason || '—'}</span> <span style="color:#484f58;font-size:10px">${ts}</span></span>
+        <span class="his-label">${t.entry || '\u2014'} \u2192 ${t.exit || '\u2014'} x${t.leverage || 1}</span>
+        <span><span class="his-reason">${t.reason || '\u2014'}</span> <span style="color:#484f58;font-size:10px">${ts}</span></span>
       </div>
+      <div id="${uniq}" style="display:none;padding:3px 4px;margin-top:3px;background:#0d1117;border-radius:4px;font-size:10px;color:#8b949e;">\uD83D\uDCCB 开仓: ${erText}</div>
     `;
+    d.addEventListener('click', function() {
+      var el = document.getElementById(uniq);
+      if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    });
     panel.appendChild(d);
   });
 }

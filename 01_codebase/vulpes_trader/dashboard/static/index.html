@@ -13,8 +13,6 @@ body {
   background: #0d1117;
   color: #c9d1d9;
   font-size: 13px;
-  display: flex;
-  flex-direction: column;
 }
 
 /* ===== Scrollbar ===== */
@@ -29,7 +27,7 @@ body {
   padding: 8px 16px;
   background: #161b22;
   border-bottom: 1px solid #30363d;
-  flex-shrink: 0;
+  height: 44px;
 }
 .topbar-left { display: flex; align-items: center; gap: 12px; }
 .logo { font-size: 18px; font-weight: 700; color: #58a6ff; }
@@ -58,20 +56,23 @@ body {
 .stat-num { color: #c9d1d9; font-weight: 600; }
 .cb-tripped { color: #f85149; font-weight: 700; }
 
-/* ===== Main Content ===== */
+/* ===== Main Content (explicit heights for reliability) ===== */
 .main {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
+  height: calc(100vh - 44px - 120px);  /* viewport - topbar - log */
   overflow: hidden;
   background: #30363d;
+}
+.pnl-panel {
+  height: 240px;
+  background: #0d1117;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .panels-row {
   display: flex;
   flex-direction: row;
-  flex: 1;
-  min-height: 0;
+  height: calc(100% - 242px);  /* main - pnl(with 1px gap) */
   overflow: hidden;
   gap: 1px;
   background: #30363d;
@@ -80,9 +81,19 @@ body {
   background: #0d1117;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+.panels-row .panel:first-child {
+  width: 320px;
+  flex-shrink: 0;
+}
+.panels-row .panel:last-child {
+  width: 280px;
+  flex-shrink: 0;
+}
+.panels-row .panel:nth-child(2) {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
 }
 .panel-header {
   padding: 8px 12px;
@@ -98,18 +109,10 @@ body {
   padding: 8px;
   min-height: 0;
 }
-.panels-row .panel:first-child {
-  flex: 0 0 320px;
-}
-.panels-row .panel:last-child {
-  flex: 0 0 280px;
-}
 
-/* ===== PnL Panel (span 3 cols, Binance style) ===== */
+/* ===== PnL Panel (Binance style) ===== */
 .pnl-panel {
   background: #0d1117;
-  min-height: 240px;
-  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -255,10 +258,11 @@ body {
 
 /* ===== Logs ===== */
 .log-panel {
-  height: 120px; flex-shrink: 0;
+  height: 120px;
   background: #0d1117;
   border-top: 1px solid #30363d;
-  display: flex; flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 .log-body {
   flex: 1; overflow-y: auto;
@@ -292,10 +296,16 @@ body {
 @media (max-width: 900px) {
   .panels-row {
     flex-direction: column;
+    height: auto;
   }
   .panels-row .panel:first-child,
-  .panels-row .panel:last-child {
-    flex: 1;
+  .panels-row .panel:last-child,
+  .panels-row .panel:nth-child(2) {
+    width: 100%;
+  }
+  .main {
+    height: auto;
+    min-height: calc(100vh - 44px - 120px);
   }
 }
 </style>

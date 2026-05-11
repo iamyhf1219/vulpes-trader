@@ -353,25 +353,8 @@ def _generate_demo_data() -> DashboardState:
         {"timestamp": now, "level": "INFO", "message": "止损设置: BTC @ 60888 (-2.5%)", "source": "risk"},
     ]
 
-    # PnL 多时间范围数据
-    from random import seed, uniform
-    seed(42)
-
-    def _walk(length, step=1.0, start=0.0):
-        v = start
-        pts = []
-        for i in range(length):
-            v += uniform(-20 * step, 35 * step)
-            pts.append({"i": i, "value": round(v, 2)})
-        return pts
-
-    pnl_by_range = {
-        "1d":   _walk(96, 1.0, 8000.0),       # 96点 (15min)
-        "7d":   _walk(168, 3.0, 7500.0),       # 168点 (1h)
-        "30d":  _walk(360, 8.0, 6000.0),       # 360点 (2h)
-        "180d": _walk(180, 20.0, 3000.0),       # 180天
-        "360d": _walk(360, 30.0, 0.0),          # 360天
-    }
+    # 初始 PnL = 持仓 PnL 总和
+    init_pnl = sum(p["pnl"] for p in positions)  # 552.4
 
     state = DashboardState(
         status="running",
@@ -380,7 +363,7 @@ def _generate_demo_data() -> DashboardState:
         positions=positions,
         signals=signals,
         logs=logs,
-        total_pnl=552.4,
+        total_pnl=init_pnl,
         win_rate=66.7,
         trade_count=12,
         circuit_breaker_tripped=False,
@@ -388,16 +371,16 @@ def _generate_demo_data() -> DashboardState:
         daily_loss=0.0,
         active_positions_count=3,
         max_positions=5,
-        pnl_history=pnl_by_range,  # dict of {range_key: points[]}
+        pnl_history={"1d": [], "7d": [], "30d": [], "180d": [], "360d": []},
         pnl_metrics={
-            "total_assets": 108632.40,
-            "realtime": 552.40,
-            "daily": 128.50,
-            "daily_pct": 1.25,
-            "monthly": 2145.80,
-            "monthly_pct": 8.32,
-            "total": 8632.40,
-            "total_pct": 86.32,
+            "total_assets": 100000.0 + init_pnl,
+            "realtime": init_pnl,
+            "daily": init_pnl,
+            "daily_pct": round((init_pnl / 100000.0) * 100, 2),
+            "monthly": init_pnl,
+            "monthly_pct": round((init_pnl / 100000.0) * 100, 2),
+            "total": init_pnl,
+            "total_pct": round((init_pnl / 100000.0) * 100, 2),
         },
         config={
             "mode": "testnet",

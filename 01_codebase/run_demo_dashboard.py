@@ -1,5 +1,5 @@
 """启动 Vulpes Trader Dashboard Demo 模式
-PnL 收益面板与持仓数据动态联动
+PnL 数据全部从持仓推导，不生成独立随机数
 """
 import sys
 for k in list(sys.modules.keys()):
@@ -11,7 +11,6 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-# 尝试一个确保可用的端口
 import socket
 def find_free_port(start=8770, end=8780):
     for port in range(start, end):
@@ -21,9 +20,10 @@ def find_free_port(start=8770, end=8780):
                 return port
             except OSError:
                 continue
-    return 8781  # fallback
+    return 8781
 
 PORT = find_free_port()
+BASE_ASSETS = 100000.0
 
 
 async def main():
@@ -35,22 +35,20 @@ async def main():
 
     await dash.start()
 
-    # 初始化 PnL 累计跟踪
-    cumulative_pnl = demo_state.total_pnl
-    daily_start_pnl = cumulative_pnl
-    pnl_history_30d = list(demo_state.pnl_history.get("30d", []))
+    # PnL 历史曲线：从持仓推导
+    pnl_history_points = []
 
     async def demo_loop():
+        nonlocal pnl_history_points
         from random import uniform
-        nonlocal cumulative_pnl, daily_start_pnl, pnl_history_30d
-
         base_prices = {"BTC/USDT": 63820.0, "ETH/USDT": 3245.0, "SOL/USDT": 138.5}
-        step_count = 0
+        step = 0
 
         while True:
             await asyncio.sleep(3)
-            step_count += 1
+            step += 1
 
+            # 更新持仓价格 & PnL
             for pos in dash._state.positions:
                 sym = pos["symbol"]
                 bp = base_prices.get(sym, 100.0)
@@ -62,28 +60,29 @@ async def main():
                 pos["pnl"] = round((bp - pos["entry_price"]) * pos["quantity"] * side_mult, 2)
                 pos["pnl_pct"] = round(((bp - pos["entry_price"]) / pos["entry_price"]) * 100, 2)
 
+            # 今日盈亏 = 持仓 PnL 总和
             realtime_pnl = sum(p["pnl"] for p in dash._state.positions)
             dash._state.total_pnl = realtime_pnl
-            cumulative_pnl += uniform(-2, 8)
-            daily_pnl = cumulative_pnl - daily_start_pnl
-            total_assets = 100000.0 + cumulative_pnl
-            daily_pct = (daily_pnl / max(100000.0 + daily_start_pnl, 1)) * 100
+            total_assets = BASE_ASSETS + realtime_pnl
+            daily_pct = (realtime_pnl / BASE_ASSETS) * 100
 
             dash._state.pnl_metrics = {
                 "total_assets": round(total_assets, 2),
                 "realtime": round(realtime_pnl, 2),
-                "daily": round(daily_pnl, 2),
+                "daily": round(realtime_pnl, 2),
                 "daily_pct": round(daily_pct, 2),
-                "monthly": round(cumulative_pnl, 2),
-                "monthly_pct": round((cumulative_pnl / 100000.0) * 100, 2),
-                "total": round(cumulative_pnl, 2),
-                "total_pct": round((cumulative_pnl / 100000.0) * 100, 2),
+                "monthly": round(realtime_pnl, 2),
+                "monthly_pct": round(daily_pct, 2),
+                "total": round(realtime_pnl, 2),
+                "total_pct": round(daily_pct, 2),
             }
 
-            pnl_history_30d.append({"i": len(pnl_history_30d), "value": round(cumulative_pnl, 2)})
-            if len(pnl_history_30d) > 720:
-                pnl_history_30d = pnl_history_30d[-720:]
-            dash._state.pnl_history["30d"] = pnl_history_30d
+            # 曲线：记录每个步长的持仓 PnL
+            pnl_history_points.append({"i": step, "value": round(realtime_pnl, 2)})
+            if len(pnl_history_points) > 720:
+                pnl_history_points = pnl_history_points[-720:]
+            for r in ("1d", "7d", "30d", "180d", "360d"):
+                dash._state.pnl_history[r] = pnl_history_points
 
             await dash.broadcast("positions", dash._state.positions)
             await dash.broadcast("status", {
@@ -98,15 +97,11 @@ async def main():
             })
             await dash.broadcast("pnl_update", {"metrics": dash._state.pnl_metrics})
 
-            if step_count % 60 == 0:
-                daily_start_pnl = cumulative_pnl
-
     asyncio.create_task(demo_loop())
     print()
     print("[DEMO] Vulpes Trader Dashboard")
     print("=" * 40)
     print(">> http://127.0.0.1:%d" % PORT)
-    print(">> 3s自动更新, PnL 与持仓实时联动")
     print()
 
     try:

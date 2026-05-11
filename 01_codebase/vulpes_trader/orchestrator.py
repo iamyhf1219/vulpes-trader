@@ -95,7 +95,7 @@ class VulpesOrchestrator:
         await self.ws_manager.connect()
 
         # 注册数据回调
-        self.ws_manager.subscribe_ohlcv(self._on_ohlcv)
+        await self.ws_manager.subscribe_ohlcv(self._on_ohlcv)
         self.supplementary.on_data(self._on_supplementary)
         self.square_monitor.on_update(self._on_heat_update)
         self.news_engine.on_event(self._on_news_event)

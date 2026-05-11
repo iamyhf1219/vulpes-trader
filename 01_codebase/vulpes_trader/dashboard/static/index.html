@@ -62,10 +62,14 @@ body {
 .main {
   display: grid;
   grid-template-columns: 320px 1fr 280px;
+  grid-template-rows: 1fr auto;
   gap: 1px;
   flex: 1;
   overflow: hidden;
   background: #30363d;
+}
+.main-panels {
+  display: contents;
 }
 .panel {
   background: #0d1117;
@@ -83,6 +87,50 @@ body {
 .panel-body {
   flex: 1; overflow-y: auto;
   padding: 8px;
+}
+
+/* ===== PnL Panel (span 3 cols) ===== */
+.pnl-panel {
+  grid-column: 1 / -1;
+  background: #0d1117;
+  height: 140px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pnl-body {
+  flex: 1;
+  display: flex;
+  padding: 8px 12px;
+  gap: 16px;
+}
+.pnl-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+}
+.pnl-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background: #161b22;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.pnl-metric .label { color: #8b949e; }
+.pnl-metric .value { font-weight: 700; font-size: 14px; }
+.pnl-metric .value.pos { color: #3fb950; }
+.pnl-metric .value.neg { color: #f85149; }
+.pnl-chart-wrap {
+  flex: 1;
+  position: relative;
+}
+.pnl-chart-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 4px;
 }
 
 /* ===== Positions ===== */
@@ -206,6 +254,7 @@ body {
 <!-- ===== Main ===== -->
 <div class="main">
 
+  <div class="main-panels">
   <!-- Left: Positions -->
   <div class="panel">
     <div class="panel-header">📦 持仓 <span id="posCount" style="color:#8b949e;font-weight:400;">(0)</span></div>
@@ -232,6 +281,23 @@ body {
       <div class="risk-item"><span class="risk-label">当日亏损</span><span class="risk-value" id="dailyLoss">0.00</span></div>
       <div class="risk-item"><span class="risk-label">仓位使用率</span><span class="risk-value" id="usagePct">0%</span></div>
       <div class="risk-bar"><div class="risk-bar-fill low" id="usageBar" style="width:0%"></div></div>
+    </div>
+  </div>
+  </div>
+
+  <!-- PnL Curve -->
+  <div class="pnl-panel">
+    <div class="panel-header">📈 收益曲线</div>
+    <div class="pnl-body">
+      <div class="pnl-metrics">
+        <div class="pnl-metric"><span class="label">实时 PnL</span><span class="value pos" id="pnlRealtime">+552.40</span></div>
+        <div class="pnl-metric"><span class="label">今日收益</span><span class="value pos" id="pnlDaily">+128.50</span></div>
+        <div class="pnl-metric"><span class="label">本月收益</span><span class="value pos" id="pnlMonthly">+2,145.80</span></div>
+        <div class="pnl-metric"><span class="label">累计收益</span><span class="value pos" id="pnlYearly">+8,632.40</span></div>
+      </div>
+      <div class="pnl-chart-wrap">
+        <canvas id="pnlChart"></canvas>
+      </div>
     </div>
   </div>
 
@@ -331,18 +397,20 @@ function handleWSMessage(msg) {
 // ---- HTTP Fetch ----
 async function fetchAll() {
   try {
-    const [status, positions, perf, signals, config] = await Promise.all([
+    const [status, positions, perf, signals, config, pnlHistory] = await Promise.all([
       fetch('/api/status').then(r => r.json()),
       fetch('/api/positions').then(r => r.json()),
       fetch('/api/performance').then(r => r.json()),
       fetch('/api/signals').then(r => r.json()),
       fetch('/api/config').then(r => r.json()),
+      fetch('/api/pnl_history').then(r => r.json()),
     ]);
     updateStatus(status);
     updatePositions(positions);
     updatePerformance(perf);
     updateSignals(signals);
     updateConfig(config);
+    updatePnlChart(pnlHistory);
   } catch (e) {
     console.warn('Fetch initial data failed:', e);
   }
@@ -518,6 +586,141 @@ function toggleLog() {
     panel.style.display = 'none';
   }
 }
+
+// ---- PnL Chart ----
+
+let _pnlHistoryCache = [];
+
+function updatePnlChart(data) {
+  if (!data || !data.points || !data.points.length) return;
+  _pnlHistoryCache = data.points;
+
+  // Update metrics
+  if (data.metrics) {
+    updatePnlMetrics(data.metrics);
+  }
+
+  drawPnlCurve(_pnlHistoryCache);
+}
+
+function updatePnlMetrics(metrics) {
+  const updateMetric = (id, val, suffix) => {
+    const el = $(id);
+    if (!el) return;
+    const v = parseFloat(val) || 0;
+    el.textContent = (v >= 0 ? '+' : '') + v.toFixed(2) + (suffix || '');
+    el.className = 'value ' + (v >= 0 ? 'pos' : 'neg');
+  };
+  updateMetric('pnlRealtime', metrics.realtime || metrics.current || 0);
+  updateMetric('pnlDaily', metrics.daily || 0);
+  updateMetric('pnlMonthly', metrics.monthly || 0);
+  updateMetric('pnlYearly', metrics.yearly || metrics.total || 0);
+}
+
+function drawPnlCurve(points) {
+  const canvas = document.getElementById('pnlChart');
+  if (!canvas) return;
+
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = (rect.width || 400) * dpr;
+  canvas.height = (rect.height || 100) * dpr;
+  canvas.style.width = (rect.width || 400) + 'px';
+  canvas.style.height = (rect.height || 100) + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const w = canvas.width / dpr;
+  const h = canvas.height / dpr;
+
+  ctx.clearRect(0, 0, w, h);
+
+  if (points.length < 2) return;
+
+  const values = points.map(p => (typeof p === 'number' ? p : (p.value || p.pnl || 0)));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const pad = 10;
+  const chartW = w - pad * 2;
+  const chartH = h - pad * 2;
+
+  // Grid lines
+  ctx.strokeStyle = '#21262d';
+  ctx.lineWidth = 1;
+  const gridCount = 4;
+  for (let i = 0; i <= gridCount; i++) {
+    const y = pad + (chartH / gridCount) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad, y);
+    ctx.lineTo(w - pad, y);
+    ctx.stroke();
+  }
+
+  // Zero line
+  if (min < 0 && max > 0) {
+    const zeroY = pad + chartH * (max / range);
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(pad, zeroY);
+    ctx.lineTo(w - pad, zeroY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Fill gradient
+  const gradient = ctx.createLinearGradient(0, pad, 0, h - pad);
+  gradient.addColorStop(0, 'rgba(88, 166, 255, 0.25)');
+  gradient.addColorStop(1, 'rgba(88, 166, 255, 0.02)');
+
+  // Draw fill area
+  ctx.beginPath();
+  const step = chartW / Math.max(points.length - 1, 1);
+  values.forEach((v, i) => {
+    const x = pad + i * step;
+    const y = pad + chartH * (1 - (v - min) / range);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.lineTo(pad + (values.length - 1) * step, h - pad);
+  ctx.lineTo(pad, h - pad);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // Draw line
+  ctx.beginPath();
+  ctx.strokeStyle = '#58a6ff';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  values.forEach((v, i) => {
+    const x = pad + i * step;
+    const y = pad + chartH * (1 - (v - min) / range);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Current value label
+  const lastV = values[values.length - 1];
+  const lastX = pad + (values.length - 1) * step;
+  const lastY = pad + chartH * (1 - (lastV - min) / range);
+  ctx.fillStyle = lastV >= 0 ? '#3fb950' : '#f85149';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText((lastV >= 0 ? '+' : '') + lastV.toFixed(1), lastX + 4, lastY - 2);
+}
+
+// Redraw on resize
+let _resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => {
+    if (_pnlHistoryCache.length) drawPnlCurve(_pnlHistoryCache);
+  }, 200);
+});
 
 // ---- Init ----
 document.addEventListener('DOMContentLoaded', () => {

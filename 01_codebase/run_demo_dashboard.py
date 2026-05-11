@@ -9,7 +9,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-PORT = 8770
+PORT = 8771
 
 async def main():
     from vulpes_trader.dashboard.server import DashboardServer, _generate_demo_data

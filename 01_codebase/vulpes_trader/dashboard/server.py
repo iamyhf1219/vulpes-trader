@@ -46,6 +46,10 @@ class DashboardState:
     max_positions: int = 5
 
     config: Dict[str, Any] = field(default_factory=dict)
+    pnl_history: List[Dict[str, Any]] = field(default_factory=list)  # PnL 时间序列
+    pnl_metrics: Dict[str, float] = field(default_factory=lambda: {
+        "realtime": 0.0, "daily": 0.0, "monthly": 0.0, "total": 0.0,
+    })
 
     _max_logs: int = 200
 
@@ -207,6 +211,12 @@ class DashboardServer:
             return self._config_cb()
         return self._state.config
 
+    def _collect_pnl_history(self) -> Dict[str, Any]:
+        return {
+            "points": self._state.pnl_history,
+            "metrics": self._state.pnl_metrics,
+        }
+
     def _build_app(self):
         """构建 FastAPI 应用"""
         app = FastAPI(title="Vulpes Trader Dashboard")
@@ -244,6 +254,10 @@ class DashboardServer:
         @app.get("/api/config")
         async def api_config():
             return self._collect_config()
+
+        @app.get("/api/pnl_history")
+        async def api_pnl_history():
+            return self._collect_pnl_history()
 
         # ---- WebSocket ----
 
@@ -331,6 +345,15 @@ def _generate_demo_data() -> DashboardState:
         {"timestamp": now, "level": "INFO", "message": "止损设置: BTC @ 60888 (-2.5%)", "source": "risk"},
     ]
 
+    # PnL 历史曲线 (模拟30天数据)
+    from random import seed, uniform
+    seed(42)
+    pnl_points = []
+    val = 0.0
+    for i in range(500):
+        val += uniform(-30, 50)
+        pnl_points.append({"i": i, "value": round(val, 2)})
+
     state = DashboardState(
         status="running",
         mode="testnet",
@@ -346,6 +369,13 @@ def _generate_demo_data() -> DashboardState:
         daily_loss=0.0,
         active_positions_count=3,
         max_positions=5,
+        pnl_history=pnl_points,
+        pnl_metrics={
+            "realtime": 552.4,
+            "daily": 128.5,
+            "monthly": 2145.8,
+            "total": 8632.4,
+        },
         config={
             "mode": "testnet",
             "max_leverage": 20,

@@ -449,6 +449,11 @@ function handleWSMessage(msg) {
     case 'log':      appendLog(msg.data); break;
     case 'performance': updatePerformance(msg.data); break;
     case 'risk':     updateRisk(msg.data); break;
+    case 'pnl_update':
+      if (msg.data && msg.data.metrics) {
+        updatePnlMetrics(msg.data.metrics);
+      }
+      break;
     default: break;
   }
 }

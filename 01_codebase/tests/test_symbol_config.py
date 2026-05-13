@@ -7,21 +7,22 @@ from vulpes_trader.config.symbol_config import SymbolConfig
 def test_default_params():
     """无 per_symbol 配置时使用全局默认"""
     sc = SymbolConfig("UNKNOWN/USDT:USDT")
-    assert sc.ema_fast == [9, 12]
-    assert sc.ema_slow == [26, 50]
-    assert sc.macd_params == (12, 26, 9)
+    assert sc.ema_fast == [9, 8]
+    assert sc.ema_slow == [26, 40]
 
 
 def test_per_symbol_override():
     """per_symbol 配置覆盖全局"""
     sc = SymbolConfig("SOL/USDT:USDT")
     assert sc.stop_loss_pct == 0.08  # per_symbol 配置值
+    assert sc.ema_fast == [9, 8]
 
 
 def test_fallback_on_partial_config():
     """部分配置使用全局默认回退"""
-    sc = SymbolConfig("BTC/USDT:USDT")
-    assert sc.ema_fast == [9, 12]
+    sc = SymbolConfig("ETH/USDT:USDT")
+    assert sc.ema_fast == [12, 10]  # per_symbol 值
+    assert sc.trailing_activation == 0.022  # per_symbol 值
 
 
 def test_macd_returns_tuple():

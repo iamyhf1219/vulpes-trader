@@ -93,10 +93,10 @@ async def test_trend_with_symbol_config():
     """不同币种使用不同参数"""
     kline = DummyKlineEngine()
     btc = TrendFollower(kline, symbol="BTC/USDT:USDT")
-    assert btc.ema_fast == [9, 12]
-    assert btc.ema_slow == [26, 50]
+    assert btc.ema_fast == [9, 8]
+    assert btc.ema_slow == [26, 40]
     sol = TrendFollower(kline, symbol="SOL/USDT:USDT")
-    assert sol.ema_fast == [12, 15]
+    assert sol.ema_fast == [9, 8]
 
 
 @pytest.mark.asyncio

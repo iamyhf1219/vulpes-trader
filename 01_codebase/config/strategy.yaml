@@ -7,3 +7,13 @@ strategy:
     ema_fast: [9, 12]
     ema_slow: [26, 50]
     macd: [12, 26, 9]
+  # 多币种参数覆盖（计划：参数寻优后填充）
+  # per_symbol:
+  #   BTC/USDT:USDT:
+  #     ema_fast: [8, 13]
+  #     ema_slow: [21, 44]
+  #     macd: [12, 26, 9]
+  #   ETH/USDT:USDT:
+  #     ema_fast: [10, 15]
+  #     ema_slow: [30, 55]
+  #     macd: [10, 22, 7]

@@ -3,6 +3,7 @@
 import logging
 from typing import List, Optional, Dict
 from vulpes_trader.signal.base import Signal, SignalDirection
+from vulpes_trader.config.symbol_config import SymbolConfig
 
 logger = logging.getLogger("vulpes.signal.fusion")
 
@@ -27,6 +28,15 @@ class SignalFusionEngine:
             "oi": 0.10,
         }
         self._signal_history: List[Signal] = []
+
+    def load_symbol_weights(self, symbol: str):
+        """按 symbol 加载融合权重"""
+        sc = SymbolConfig(symbol)
+        sym_weights = sc.fusion_weights
+        if sym_weights:
+            for k, v in sym_weights.items():
+                if k in self.weights:
+                    self.weights[k] = v
 
     def update_weights(self, source: str, new_weight: float):
         """更新信号源权重（进化系统用）"""

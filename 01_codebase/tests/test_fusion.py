@@ -65,6 +65,22 @@ def test_fusion_exit_long():
     assert result.direction == SignalDirection.EXIT_LONG
 
 
+def test_fusion_per_symbol_weights():
+    """不同币种加载不同融合权重"""
+    fusion = SignalFusionEngine()
+    fusion.load_symbol_weights("SOL/USDT:USDT")
+    # SOL 使用 heat-heavy 权重
+    assert fusion.weights["heat"] == 0.40
+
+
+def test_fusion_weight_normalization():
+    """权重归一化总和为 1.0"""
+    fusion = SignalFusionEngine()
+    fusion.load_symbol_weights("ETH/USDT:USDT")
+    total = sum(fusion.weights.values())
+    assert abs(total - 1.0) < 0.01
+
+
 def test_fusion_weight_update():
     """测试权重更新"""
     engine = SignalFusionEngine()

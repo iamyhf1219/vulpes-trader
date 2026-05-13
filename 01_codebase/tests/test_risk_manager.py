@@ -84,6 +84,21 @@ def test_circuit_breaker_trip():
     assert cb.is_tripped()
 
 
+def test_risk_per_symbol_stop_loss():
+    """不同币种不同止损比例"""
+    rm = RiskManager()
+    # SOL 波动大，止损 8%
+    sl, act = rm.compute_stop_loss(100.0, "long", symbol="SOL/USDT:USDT")
+    assert abs(sl - 92.0) < 0.01  # 100 * (1 - 0.08)
+
+
+def test_risk_btc_stop_loss():
+    """BTC 止损 5%"""
+    rm = RiskManager()
+    sl, act = rm.compute_stop_loss(60000.0, "long", symbol="BTC/USDT:USDT")
+    assert abs(sl - 57000.0) < 0.01  # 60000 * (1 - 0.05)
+
+
 def test_circuit_breaker_reset():
     """测试熔断重置"""
     cb = CircuitBreaker(cooldown_hours=1)  # 1 小时冷却，确保 trip 后不会自动重置

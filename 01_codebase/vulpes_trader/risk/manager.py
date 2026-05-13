@@ -3,6 +3,7 @@
 import logging
 from typing import Dict, Optional, Tuple
 from vulpes_trader.risk.circuit_breaker import CircuitBreaker
+from vulpes_trader.config.symbol_config import SymbolConfig
 
 logger = logging.getLogger("vulpes.risk")
 
@@ -29,6 +30,7 @@ class RiskManager:
         }
         self.circuit_breaker = CircuitBreaker()
         self._active_positions: Dict[str, dict] = {}
+        self._symbol_params: Dict[str, dict] = {}
 
     def compute_leverage(
         self,
@@ -93,20 +95,43 @@ class RiskManager:
         final_pct = min(adjusted_pct, max_pct * 2)
         return capital * final_pct
 
+    def load_symbol_config(self, symbol: str) -> Dict:
+        """加载该币种的风控参数"""
+        sc = SymbolConfig(symbol)
+        params = {
+            "stop_loss_pct": sc.stop_loss_pct,
+            "trailing_activation": sc.trailing_activation,
+            "trailing_distance": sc.trailing_distance,
+        }
+        self._symbol_params[symbol] = params
+        return params
+
     def compute_stop_loss(
         self,
         entry_price: float,
         side: str,
         atr: float = 0,
         fixed_pct: Optional[float] = None,
+        symbol: str = "BTC/USDT:USDT",
     ) -> Tuple[float, float]:
         """
         计算止损价和移动止损激活价
 
+        Args:
+            symbol: 币种（用于加载 per-symbol 参数）
+
         Returns:
             (stop_loss_price, trailing_activation_price)
         """
-        pct = fixed_pct or self.config["stop_loss_fixed_pct"]
+        # 尝试使用 per-symbol 参数
+        sym_params = self._symbol_params.get(symbol)
+        if sym_params is None and fixed_pct is None:
+            sym_params = self.load_symbol_config(symbol)
+
+        if sym_params and fixed_pct is None:
+            pct = sym_params["stop_loss_pct"]
+        else:
+            pct = fixed_pct or self.config["stop_loss_fixed_pct"]
         atr_distance = atr * 2 if atr > 0 else entry_price * pct
 
         if side == "long":

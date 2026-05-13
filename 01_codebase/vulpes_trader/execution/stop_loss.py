@@ -4,6 +4,7 @@ import logging
 from typing import Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from vulpes_trader.config.symbol_config import SymbolConfig
 
 logger = logging.getLogger("vulpes.execution.sl")
 
@@ -43,18 +44,22 @@ class StopLossManager:
         symbol: str,
         side: str,
         entry_price: float,
-        fixed_sl_pct: float = 0.05,
-        trailing_activation_pct: float = 0.02,
+        fixed_sl_pct: Optional[float] = None,
+        trailing_activation_pct: Optional[float] = None,
     ) -> StopLossState:
-        """创建止损"""
+        """创建止损，支持 per-symbol 参数"""
+        # 加载 per-symbol 参数
+        sc = SymbolConfig(symbol)
+        sl_pct = fixed_sl_pct if fixed_sl_pct is not None else sc.stop_loss_pct
+        act_pct = trailing_activation_pct if trailing_activation_pct is not None else sc.trailing_activation
         if side == "long":
-            fixed_sl = entry_price * (1 - fixed_sl_pct)
-            activation = entry_price * (1 + trailing_activation_pct)
+            fixed_sl = entry_price * (1 - sl_pct)
+            activation = entry_price * (1 + act_pct)
             highest = entry_price
             lowest = entry_price
         else:
-            fixed_sl = entry_price * (1 + fixed_sl_pct)
-            activation = entry_price * (1 - trailing_activation_pct)
+            fixed_sl = entry_price * (1 + sl_pct)
+            activation = entry_price * (1 - act_pct)
             highest = entry_price
             lowest = entry_price
 

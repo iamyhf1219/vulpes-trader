@@ -4,14 +4,14 @@ strategy:
     primary: "5m"
     secondary: "15m"
   indicators:
-    ema_fast: [9, 12]
-    ema_slow: [26, 50]
-    macd: [12, 26, 9]
+    # 全局默认（基于参数扫描结果）
+    ema_fast: [9, 8]
+    ema_slow: [26, 40]
   per_symbol:
     BTC/USDT:USDT:
-      ema_fast: [9, 12]
-      ema_slow: [26, 50]
-      macd: [12, 26, 9]
+      enabled: true
+      ema_fast: [9, 8]
+      ema_slow: [26, 40]
       risk:
         stop_loss_fixed_pct: 0.05
         trailing_activation: 0.02
@@ -22,31 +22,32 @@ strategy:
         event: 0.25
         oi: 0.10
     ETH/USDT:USDT:
-      ema_fast: [10, 15]
-      ema_slow: [30, 55]
-      macd: [10, 22, 7]
+      enabled: true
+      ema_fast: [12, 10]
+      ema_slow: [20, 40]
       risk:
-        stop_loss_fixed_pct: 0.06
-        trailing_activation: 0.025
-        trailing_distance: 0.018
+        stop_loss_fixed_pct: 0.055
+        trailing_activation: 0.022
+        trailing_distance: 0.017
+      fusion_weights:
+        trend: 0.35
+        heat: 0.30
+        event: 0.25
+        oi: 0.10
+    SOL/USDT:USDT:
+      enabled: true
+      ema_fast: [9, 8]
+      ema_slow: [26, 40]
+      risk:
+        stop_loss_fixed_pct: 0.08
+        trailing_activation: 0.03
+        trailing_distance: 0.025
       fusion_weights:
         trend: 0.25
         heat: 0.40
         event: 0.25
         oi: 0.10
-    SOL/USDT:USDT:
-      ema_fast: [12, 15]
-      ema_slow: [20, 40]
-      macd: [8, 20, 6]
-      risk:
-        stop_loss_fixed_pct: 0.08
-        trailing_activation: 0.03
-        trailing_distance: 0.02
-      fusion_weights:
-        trend: 0.20
-        heat: 0.40
-        event: 0.30
-        oi: 0.10
+
 fusion:
   weights:
     trend: 0.30

@@ -73,6 +73,43 @@ def test_signal_is_tradeable():
     assert not s3.is_tradeable(min_confidence=0.5)
 
 
+class DummyKlineEngine:
+    """最小化模拟 K 线引擎"""
+    def get_klines(self, symbol, timeframe):
+        import pandas as pd
+        import numpy as np
+        n = 100
+        closes = 100 + np.cumsum(np.random.randn(n) * 0.5)
+        return pd.DataFrame({
+            "timestamp": pd.date_range("2026-01-01", periods=n, freq="5min").astype(int) // 10**6,
+            "open": closes * 0.995, "high": closes * 1.01,
+            "low": closes * 0.99, "close": closes,
+            "volume": np.random.rand(n) * 100,
+        })
+
+
+@pytest.mark.asyncio
+async def test_trend_with_symbol_config():
+    """不同币种使用不同参数"""
+    kline = DummyKlineEngine()
+    btc = TrendFollower(kline, symbol="BTC/USDT:USDT")
+    assert btc.ema_fast == [9, 12]
+    assert btc.ema_slow == [26, 50]
+    sol = TrendFollower(kline, symbol="SOL/USDT:USDT")
+    assert sol.ema_fast == [12, 15]
+
+
+@pytest.mark.asyncio
+async def test_trend_with_atr_adaptation():
+    """有波动率数据时 EMA 周期会自适应调整"""
+    kline = DummyKlineEngine()
+    tf = TrendFollower(kline, symbol="BTC/USDT:USDT")
+    tf._volatility._atr_history = [1.0] * 144
+    high_atr = 3.5
+    adjusted = tf._volatility.adaptive_ema_period(12, high_atr)
+    assert adjusted < 12
+
+
 def test_ema_calculation():
     """测试 EMA 计算"""
     prices = [10, 12, 15, 14, 13, 16, 18, 17, 19, 21]

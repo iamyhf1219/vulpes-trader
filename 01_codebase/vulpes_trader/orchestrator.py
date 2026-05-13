@@ -18,6 +18,7 @@ from vulpes_trader.signal.trend_follower import TrendFollower
 from vulpes_trader.signal.heat_analyzer import HeatAnalyzer
 from vulpes_trader.signal.event_analyzer import EventAnalyzer
 from vulpes_trader.signal.fusion import SignalFusionEngine
+from vulpes_trader.signal.tracker import SignalQualityTracker
 from vulpes_trader.risk.manager import RiskManager
 from vulpes_trader.execution.order_manager import OrderManager, OrderType
 from vulpes_trader.execution.position_manager import PositionManager
@@ -78,6 +79,9 @@ class VulpesOrchestrator:
         self.reviewer = TradeReviewer()
         self.optimizer = ParameterOptimizer()
         self.knowledge_base = KnowledgeBase()
+
+        # 信号质量追踪
+        self.signal_tracker = SignalQualityTracker(window=20)
 
     async def start(self):
         """启动所有模块"""
@@ -175,6 +179,7 @@ class VulpesOrchestrator:
                 logger.info("Stop loss triggered %s: %s", symbol, stop_reason)
                 closed = self.position_manager.close_position(symbol, current_price, stop_reason)
                 if closed:
+                    self._track_signal_quality(symbol, closed)
                     signal_snapshot = self._build_signal_snapshot(symbol)
                     review = self.reviewer.review({
                         "id": 0, "symbol": symbol, "side": position.side,
@@ -193,6 +198,7 @@ class VulpesOrchestrator:
             closed = self.position_manager.close_position(symbol, current_price, final_signal.direction.value)
             if closed:
                 self.stop_loss_manager.remove(symbol)
+                self._track_signal_quality(symbol, closed)
                 signal_snapshot = self._build_signal_snapshot(symbol)
                 self.reviewer.review({
                     "id": 0, "symbol": symbol, "side": position.side,
@@ -242,6 +248,26 @@ class VulpesOrchestrator:
 
         logger.info("Trade %s %s @%.2f x%d (qty=%.4f)", symbol, signal.direction.value, price, leverage, quantity)
 
+    def _track_signal_quality(self, symbol: str, closed):
+        """记录信号质量并调整权重"""
+        signal_snapshot = self._build_signal_snapshot(symbol)
+        fusion_sources = signal_snapshot.get("fusion", {})
+        self.signal_tracker.record_trade(
+            symbol=symbol,
+            signal_sources=fusion_sources,
+            trade_pnl=closed.pnl,
+        )
+        # 每 10 笔交易触发权重自适应
+        if self.signal_tracker.should_adjust(min_trades=10):
+            adjusted = self.signal_tracker.apply_adjustments(
+                self.fusion.weights, symbol
+            )
+            for source, w in adjusted.items():
+                self.fusion.weights[source] = w
+            logger.info(
+                "自适应权重调整 %s: %s", symbol, adjusted
+            )
+
     def _is_exit_signal(self, signal, current_side: str) -> bool:
         """判断是否需要退出"""
         if signal.direction.value == "exit_long" and current_side == "long":
@@ -257,6 +283,7 @@ class VulpesOrchestrator:
                 "weight_trend": self.fusion.weights.get("trend", 0),
                 "weight_heat": self.fusion.weights.get("heat", 0),
                 "weight_event": self.fusion.weights.get("event", 0),
+                "weight_oi": self.fusion.weights.get("oi", 0),
             },
             "params": dict(self.optimizer.params),
         }
